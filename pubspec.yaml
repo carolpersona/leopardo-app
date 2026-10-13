@@ -1,0 +1,42 @@
+name: leopardo_app
+description: App oficial das Impressoras Leopardo - imprima PDF, imagem, recibos e cobranças PIX direto do celular.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Bluetooth Low Energy. Faixa fixa abaixo da 1.35 para manter a API de connect() estável.
+  flutter_blue_plus: '>=1.32.0 <1.35.0'
+  permission_handler: ^11.3.1
+  # Seleção de arquivos (PDF/imagem)
+  file_picker: ^8.1.2
+  # Rasterização de PDF em imagem
+  printing: ^5.13.1
+  # Receber arquivos compartilhados do WhatsApp e outros apps
+  receive_sharing_intent: ^1.8.1
+  # Geração da matriz do QR Code (PIX)
+  qr: ^3.0.2
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.1
+
+# Ícone do app gerado a partir da marca Leopardo (dart run flutter_launcher_icons)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon.png
+  adaptive_icon_background: '#FFFFFF'
+  adaptive_icon_foreground: assets/icon_foreground.png
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
