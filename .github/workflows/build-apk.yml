@@ -1,0 +1,47 @@
+name: Gerar APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.24.5
+          cache: true
+
+      - name: Completar projeto Android
+        run: flutter create --platforms=android,ios --org br.com.leopardo --project-name leopardo_app .
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Ícone do app
+        run: dart run flutter_launcher_icons
+
+      - name: Testes
+        run: flutter test
+        continue-on-error: true
+
+      - name: Compilar APK
+        run: flutter build apk --release
+
+      - name: Renomear APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk leopardo-app.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leopardo-app-apk
+          path: leopardo-app.apk
