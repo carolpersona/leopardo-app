@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:qr/qr.dart';
 
+import 'code128.dart';
 import 'money.dart';
 
 /// Desenha recibos, cobranças PIX e páginas de teste como imagem na largura
@@ -111,6 +112,26 @@ class TicketCanvas {
     y += total + 4;
   }
 
+  /// Código de barras Code 128 centralizado, com o texto embaixo.
+  void barcode(String data, {double height = 80}) {
+    if (data.trim().isEmpty) return;
+    final modules = Code128.encode(data.trim());
+    // Zona de silêncio de 10 módulos de cada lado.
+    final total = modules.length + 20;
+    var cell = (_inner / total).floorToDouble();
+    if (cell < 1) cell = 1;
+    if (cell > 3 * _k) cell = (3 * _k).floorToDouble();
+    final w = cell * total;
+    final ox = ((width - w) / 2).floorToDouble() + cell * 10;
+    final h = height * _k;
+    final p = Paint()..color = const Color(0xFF000000);
+    for (var i = 0; i < modules.length; i++) {
+      if (modules[i]) _c.drawRect(Rect.fromLTWH(ox + i * cell, y, cell, h), p);
+    }
+    y += h + 2;
+    text(data.trim(), size: 18, align: TextAlign.center, mono: true);
+  }
+
   Future<ui.Image> finish() {
     y += 10;
     return _rec.endRecording().toImage(width, y.ceil());
@@ -149,6 +170,7 @@ Future<ui.Image> renderReceipt({
   required List<ReceiptItem> items,
   String? payment,
   required String footer,
+  String barcode = '',
 }) {
   final t = TicketCanvas(width);
   _header(t, storeName: storeName, storePhone: storePhone, storeCity: storeCity, logo: logo);
@@ -165,6 +187,10 @@ Future<ui.Image> renderReceipt({
   t.dashed();
   t.row('TOTAL', formatBRL(total), size: 28, bold: true);
   if (payment != null && payment.isNotEmpty) t.text('Pagamento: $payment', size: 19);
+  if (barcode.trim().isNotEmpty) {
+    t.space(8);
+    t.barcode(barcode);
+  }
   if (footer.trim().isNotEmpty) {
     t.dashed();
     t.text(footer.trim(), size: 20, align: TextAlign.center);

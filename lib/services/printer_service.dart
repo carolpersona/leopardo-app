@@ -4,14 +4,17 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'escpos.dart';
+import 'native_printers.dart';
 import 'raster.dart';
 import 'settings.dart';
 
-/// Conexão BLE com a impressora e envio dos comandos ESC/POS.
+/// Conexão com a impressora (BLE pelo Flutter; Bluetooth clássico e USB pelo
+/// código Android) e envio dos comandos ESC/POS.
 class PrinterService extends ChangeNotifier {
   PrinterService._();
   static final PrinterService instance = PrinterService._();
@@ -35,12 +38,27 @@ class PrinterService extends ChangeNotifier {
   List<ScanResult> results = [];
   String? lastError;
 
+  // Bluetooth clássico / USB
+  String? nativeId;
+  String nativeName = '';
+  List<NativePrinterInfo> bonded = [];
+  List<NativePrinterInfo> usbDevices = [];
+
   StreamSubscription<List<ScanResult>>? _scanSub;
   StreamSubscription<bool>? _scanningSub;
   StreamSubscription<BluetoothConnectionState>? _connSub;
 
-  bool get isConnected => device != null && _writer != null;
+  bool get isConnected => nativeId != null || (device != null && _writer != null);
+
+  /// "BLE", "Bluetooth" (clássico) ou "USB".
+  String get kindLabel {
+    final id = nativeId;
+    if (id == null) return 'BLE';
+    return id.startsWith('usb:') ? 'USB' : 'Bluetooth';
+  }
+
   String get deviceName {
+    if (nativeId != null) return nativeName;
     final d = device;
     if (d == null) return '';
     final n = d.platformName;
@@ -101,6 +119,7 @@ class PrinterService extends ChangeNotifier {
       return;
     }
     results = [];
+    loadNativeDevices();
     _scanSub?.cancel();
     _scanSub = FlutterBluePlus.scanResults.listen((list) {
       final named = list.where((r) => _nameOf(r).isNotEmpty).toList();
@@ -122,6 +141,41 @@ class PrinterService extends ChangeNotifier {
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 12));
     } catch (e) {
       lastError = 'Não foi possível buscar impressoras: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Impressoras pareadas (Bluetooth clássico) e conectadas por cabo USB.
+  Future<void> loadNativeDevices() async {
+    bonded = await NativePrinters.bonded();
+    usbDevices = await NativePrinters.usb();
+    notifyListeners();
+  }
+
+  Future<bool> connectNative(NativePrinterInfo p) async {
+    lastError = null;
+    connecting = true;
+    notifyListeners();
+    await stopScan();
+    try {
+      await disconnect();
+      await NativePrinters.connect(p.id);
+      nativeId = p.id;
+      nativeName = p.name;
+      final s = AppSettings.instance;
+      s.lastPrinterId = p.id;
+      s.lastPrinterName = p.name;
+      s.knownPrinters[p.id] = p.name;
+      await s.save();
+      return true;
+    } on PlatformException catch (e) {
+      lastError = e.message ?? 'Falha ao conectar';
+      return false;
+    } catch (e) {
+      lastError = 'Falha ao conectar: $e';
+      return false;
+    } finally {
+      connecting = false;
       notifyListeners();
     }
   }
@@ -151,7 +205,7 @@ class PrinterService extends ChangeNotifier {
     notifyListeners();
     await stopScan();
     try {
-      if (device != null && device!.remoteId != d.remoteId) {
+      if (nativeId != null || (device != null && device!.remoteId != d.remoteId)) {
         await disconnect();
       }
       await d.connect(timeout: const Duration(seconds: 12), autoConnect: false);
@@ -192,6 +246,16 @@ class PrinterService extends ChangeNotifier {
     final s = AppSettings.instance;
     if (!s.autoReconnect || s.lastPrinterId.isEmpty || isConnected) return;
     if (!await ensurePermissions()) return;
+    if (s.lastPrinterId.startsWith('classic:') || s.lastPrinterId.startsWith('usb:')) {
+      if (s.lastPrinterId.startsWith('usb:')) {
+        final list = await NativePrinters.usb();
+        if (!list.any((p) => p.id == s.lastPrinterId)) return; // cabo desconectado
+      }
+      await connectNative(NativePrinterInfo(s.lastPrinterId, s.lastPrinterName, true));
+      if (!isConnected) lastError = null;
+      notifyListeners();
+      return;
+    }
     if (FlutterBluePlus.adapterStateNow != BluetoothAdapterState.on) {
       try {
         await FlutterBluePlus.adapterState
@@ -208,6 +272,13 @@ class PrinterService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    if (nativeId != null) {
+      try {
+        await NativePrinters.disconnect();
+      } catch (_) {}
+      nativeId = null;
+      nativeName = '';
+    }
     try {
       await device?.disconnect();
     } catch (_) {}
@@ -255,6 +326,16 @@ class PrinterService extends ChangeNotifier {
   }
 
   Future<void> _send(Uint8List data) async {
+    if (nativeId != null) {
+      try {
+        await NativePrinters.write(data);
+      } on PlatformException catch (e) {
+        nativeId = null;
+        notifyListeners();
+        throw e.message ?? 'Falha ao enviar';
+      }
+      return;
+    }
     final w = _writer;
     final d = device;
     if (w == null || d == null) throw 'Impressora não conectada';
@@ -275,10 +356,33 @@ class PrinterService extends ChangeNotifier {
     printing = true;
     notifyListeners();
     try {
-      await _send(EscPos.job(pages, copies: copies));
+      final s = AppSettings.instance;
+      await _send(EscPos.job(
+        pages,
+        copies: copies,
+        feedLines: s.feedLines,
+        cut: s.autoCut,
+        openDrawer: s.openDrawer,
+      ));
     } finally {
       printing = false;
       notifyListeners();
     }
   }
+
+  /// Envia bytes ESC/POS prontos (integração com outros sistemas).
+  Future<void> sendRaw(Uint8List bytes) async {
+    if (!isConnected) throw 'Conecte uma impressora primeiro.';
+    printing = true;
+    notifyListeners();
+    try {
+      await _send(bytes);
+    } finally {
+      printing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Comando avulso (abrir gaveta, cortar papel) usado nos Ajustes.
+  Future<void> sendCommand(List<int> cmd) => sendRaw(Uint8List.fromList(cmd));
 }

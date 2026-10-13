@@ -17,10 +17,19 @@ import java.io.File
  */
 object ThermalRaster {
 
+    /** darkness: 0 = claro, 1 = normal, 2 = escuro. */
+    data class JobOptions(
+        val feedLines: Int = 4,
+        val cut: Boolean = false,
+        val drawer: Boolean = false,
+        val darkness: Int = 1
+    )
+
     /** Gera os bytes ESC/POS de todas as páginas do PDF. */
-    fun pdfToEscPos(pdf: File, paperDots: Int, isCancelled: () -> Boolean): ByteArray {
+    fun pdfToEscPos(pdf: File, paperDots: Int, opts: JobOptions, isCancelled: () -> Boolean): ByteArray {
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(0x1B, 0x40)) // ESC @
+        if (opts.drawer) out.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA.toByte())) // ESC p: abre gaveta
         val fd = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY)
         fd.use {
             val renderer = PdfRenderer(fd)
@@ -33,17 +42,18 @@ object ThermalRaster {
                     } finally {
                         page.close()
                     }
-                    val mono = toMono(bmp, paperDots)
+                    val mono = toMono(bmp, paperDots, opts.darkness)
                     bmp.recycle()
                     if (mono != null) {
                         writeRaster(out, mono.first, mono.second, paperDots)
-                        out.write(byteArrayOf(0x1B, 0x64, 4)) // ESC d 4: avança papel
+                        out.write(byteArrayOf(0x1B, 0x64, opts.feedLines.coerceIn(0, 20).toByte())) // ESC d n
                     }
                 }
             } finally {
                 renderer.close()
             }
         }
+        if (opts.cut) out.write(byteArrayOf(0x1D, 0x56, 0x42, 0x00)) // GS V: corte parcial
         return out.toByteArray()
     }
 
@@ -67,7 +77,7 @@ object ThermalRaster {
      * Recorta as margens em branco, ajusta à largura do papel e converte para 1 bit.
      * Retorna (bits, altura) ou null se a página estiver em branco.
      */
-    private fun toMono(src: Bitmap, paperDots: Int): Pair<ByteArray, Int>? {
+    private fun toMono(src: Bitmap, paperDots: Int, darkness: Int): Pair<ByteArray, Int>? {
         val w = src.width
         val h = src.height
         val px = IntArray(w * h)
@@ -118,7 +128,9 @@ object ThermalRaster {
             for (x in 0 until paperDots) {
                 val i = y * paperDots + x
                 val old = l[i]
-                val black = if (dither) old < 128f else old < 150f
+                // Tom: claro / normal / escuro muda o ponto de corte do preto.
+                val shift = (darkness.coerceIn(0, 2) - 1) * 30f
+                val black = if (dither) old < 128f + shift else old < 150f + shift
                 if (black) {
                     val bi = y * bpr + (x shr 3)
                     bits[bi] = (bits[bi].toInt() or (0x80 shr (x and 7))).toByte()

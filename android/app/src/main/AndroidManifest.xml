@@ -11,7 +11,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application
         android:label="Leopardo"
@@ -43,6 +45,24 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
+            </intent-filter>
+            <!-- "Compartilhar > Leopardo" para texto (ex.: pedido do WhatsApp) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Integração: links leopardo://print?text=... (sites e apps) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="leopardo" />
+            </intent-filter>
+            <!-- Integração: Intent br.com.leopardo.PRINT (ERPs, PDVs, apps Android) -->
+            <intent-filter>
+                <action android:name="br.com.leopardo.PRINT" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <!-- "Abrir com > Leopardo" para PDF -->
             <intent-filter>

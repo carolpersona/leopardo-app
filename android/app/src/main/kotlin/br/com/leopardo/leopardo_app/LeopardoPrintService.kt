@@ -42,6 +42,28 @@ class LeopardoPrintService : PrintService() {
 
     private fun paperDots(mm: Int) = if (mm == 80) 576 else 384
 
+    /** Comandos configurados no app (Ajustes › Comandos da impressora). */
+    private fun jobOptions(): ThermalRaster.JobOptions {
+        val p = prefs()
+        fun long(k: String, d: Long) = try { p.getLong(k, d) } catch (e: Exception) { d }
+        fun bool(k: String) = try { p.getBoolean(k, false) } catch (e: Exception) { false }
+        return ThermalRaster.JobOptions(
+            feedLines = long("flutter.feedLines", 4L).toInt(),
+            cut = bool("flutter.autoCut"),
+            drawer = bool("flutter.openDrawer"),
+            darkness = long("flutter.darkness", 1L).toInt()
+        )
+    }
+
+    /** Impressoras pareadas por Bluetooth clássico com "Leopardo" no nome. */
+    private fun bondedLeopardo(): Map<String, String> = try {
+        NativePrinters.bondedDevices(this)
+            .filter { (it["name"] as String).lowercase(Locale.ROOT).contains("leopardo") }
+            .associate { (it["id"] as String) to (it["name"] as String) }
+    } catch (e: Exception) {
+        emptyMap()
+    }
+
     /** Impressoras já conectadas pelo app: endereço -> nome. */
     private fun knownPrinters(): Map<String, String> {
         val out = LinkedHashMap<String, String>()
@@ -114,7 +136,7 @@ class LeopardoPrintService : PrintService() {
         }
 
         override fun onStartPrinterDiscovery(priorityList: List<PrinterId>) {
-            val list = knownPrinters().map { (addr, name) ->
+            val list = (bondedLeopardo() + knownPrinters()).map { (addr, name) ->
                 found[addr] = name
                 buildPrinter(addr, name)
             }
@@ -148,7 +170,7 @@ class LeopardoPrintService : PrintService() {
         override fun onStopPrinterDiscovery() = stopScan()
 
         override fun onValidatePrinters(printerIds: List<PrinterId>) {
-            val known = knownPrinters()
+            val known = bondedLeopardo() + knownPrinters()
             val list = printerIds.mapNotNull { id ->
                 val name = found[id.localId] ?: known[id.localId]
                 if (name != null) buildPrinter(id.localId, name) else null
@@ -183,6 +205,7 @@ class LeopardoPrintService : PrintService() {
         val isCancelled = { synchronized(cancelled) { cancelled.contains(jobKey) } }
         val tmp = File(cacheDir, "print_${System.currentTimeMillis()}.pdf")
         val dots = paperDots(paperMm())
+        val options = jobOptions()
 
         // A leitura do documento é feita logo, enquanto o descritor está válido.
         try {
@@ -198,8 +221,12 @@ class LeopardoPrintService : PrintService() {
         Thread {
             var error: String? = null
             try {
-                val bytes = ThermalRaster.pdfToEscPos(tmp, dots, isCancelled)
-                BlePrinter(this, address).send(bytes, isCancelled)
+                val bytes = ThermalRaster.pdfToEscPos(tmp, dots, options, isCancelled)
+                if (address.startsWith("classic:") || address.startsWith("usb:")) {
+                    NativePrinters.sendOnce(this, address, bytes)
+                } else {
+                    BlePrinter(this, address).send(bytes, isCancelled)
+                }
             } catch (e: InterruptedException) {
                 error = null
             } catch (e: Exception) {

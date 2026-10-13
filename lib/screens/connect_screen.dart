@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../services/native_printers.dart';
 import '../services/printer_service.dart';
 import '../services/settings.dart';
 import '../services/system_print.dart';
@@ -31,6 +32,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     super.initState();
     // Na aba, a busca começa quando o usuário abre a aba (ver main.dart).
     if (!widget.asTab && !ps.isConnected) ps.startScan();
+    ps.loadNativeDevices();
   }
 
   @override
@@ -82,6 +84,32 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     for (var i = 0; i < ps.results.length; i++) ...[
                       if (i > 0) const Divider(height: 1, color: Color(0xFFE8E8E3)),
                       _resultTile(ps.results[i]),
+                    ],
+                  ]),
+                ),
+                const SizedBox(height: 18),
+              ],
+              if (ps.bonded.isNotEmpty) ...[
+                const SectionLabel('Bluetooth pareado (clássico)'),
+                LeoCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(children: [
+                    for (var i = 0; i < ps.bonded.length; i++) ...[
+                      if (i > 0) const Divider(height: 1, color: Color(0xFFE8E8E3)),
+                      _nativeTile(ps.bonded[i]),
+                    ],
+                  ]),
+                ),
+                const SizedBox(height: 18),
+              ],
+              if (ps.usbDevices.isNotEmpty) ...[
+                const SectionLabel('USB (cabo OTG)'),
+                LeoCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(children: [
+                    for (var i = 0; i < ps.usbDevices.length; i++) ...[
+                      if (i > 0) const Divider(height: 1, color: Color(0xFFE8E8E3)),
+                      _nativeTile(ps.usbDevices[i]),
                     ],
                   ]),
                 ),
@@ -162,7 +190,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     '2. Confira se o Bluetooth está ativo.\n'
                     '3. Permita o acesso a "Dispositivos próximos" quando o app pedir.\n'
                     '4. Se ela estiver conectada a outro celular, desconecte lá primeiro.\n'
-                    '5. Puxe a tela para baixo para buscar de novo.',
+                    '5. Puxe a tela para baixo para buscar de novo.\n'
+                    '6. Impressora Bluetooth comum (não BLE)? Pareie primeiro em Configurações › Bluetooth do celular; ela aparece em "Bluetooth pareado".',
                     style: TextStyle(fontSize: 14, color: LeoColors.text2, height: 1.5),
                   ),
                 ]),
@@ -184,7 +213,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(ps.deviceName,
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-              const Text('Conectada', style: TextStyle(color: LeoColors.okFg, fontSize: 13)),
+              Text('Conectada · ${ps.kindLabel}', style: const TextStyle(color: LeoColors.okFg, fontSize: 13)),
             ]),
           ),
           TextButton(
@@ -227,6 +256,56 @@ class _ConnectScreenState extends State<ConnectScreen> {
           ],
         ]),
       );
+
+  Future<void> _connectNative(NativePrinterInfo p) async {
+    final ok = await ps.connectNative(p);
+    if (!mounted) return;
+    if (ok) {
+      showMsg(context, 'Conectada a ${p.name}.');
+      if (!widget.asTab) Navigator.of(context).pop();
+    } else {
+      showMsg(context, ps.lastError ?? 'Não foi possível conectar.');
+    }
+  }
+
+  Widget _nativeTile(NativePrinterInfo p) {
+    final isCurrent = ps.nativeId == p.id;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: p.looksLikePrinter ? LeoColors.ink : const Color(0xFF9EA19A),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(p.isUsb ? Icons.usb : Icons.bluetooth, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text(p.isUsb ? 'Cabo USB' : 'Pareada no Android',
+                style: const TextStyle(fontSize: 12, color: LeoColors.muted)),
+          ]),
+        ),
+        if (isCurrent)
+          const Text('Conectada', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1F7A4D)))
+        else
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: LeoColors.red,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: ps.connecting ? null : () => _connectNative(p),
+            child: const Text('Conectar'),
+          ),
+      ]),
+    );
+  }
 
   Widget _resultTile(ScanResult r) {
     final name = PrinterService.nameOf(r);

@@ -7,12 +7,15 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'screens/connect_screen.dart';
 import 'screens/file_print_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/receipt_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/integration.dart';
 import 'services/printer_service.dart';
 import 'services/settings.dart';
 import 'theme.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +31,7 @@ class LeopardoApp extends StatelessWidget {
         title: 'Leopardo',
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
+        scaffoldMessengerKey: messengerKey,
         theme: buildTheme(),
         home: const Shell(),
       );
@@ -53,6 +57,9 @@ class _ShellState extends State<Shell> {
       _openShared(files);
       ReceiveSharingIntent.instance.reset();
     });
+    // Pedidos de impressão de outros apps e sites (leopardo://, br.com.leopardo.PRINT).
+    Integration.onRequest = _onPrintRequest;
+    Integration.init();
     // Reconecta à última impressora usada.
     WidgetsBinding.instance.addPostFrameCallback((_) => PrinterService.instance.reconnectLast());
   }
@@ -63,10 +70,36 @@ class _ShellState extends State<Shell> {
     super.dispose();
   }
 
+  void _toast(String text) {
+    messengerKey.currentState
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _onPrintRequest(PrintRequest r) async {
+    _toast('Imprimindo pedido recebido…');
+    try {
+      await Integration.print(r);
+      _toast('Pedido impresso.');
+    } catch (e) {
+      _toast('Não foi possível imprimir: $e');
+      if (!PrinterService.instance.isConnected) {
+        navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => const ConnectScreen()));
+      }
+    }
+  }
+
   void _openShared(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
     final f = files.first;
-    if (f.path.isEmpty) return;
+    if (f.path.isEmpty || f.path.startsWith('leopardo:')) return; // tratado pela integração
+    if (f.type == SharedMediaType.text || f.type == SharedMediaType.url) {
+      // Texto compartilhado (ex.: pedido do WhatsApp): abre já preenchido para imprimir.
+      navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (_) => ReceiptScreen(initialText: f.path),
+      ));
+      return;
+    }
     navigatorKey.currentState?.push(MaterialPageRoute(
       builder: (_) => FilePrintScreen(path: f.path, sourceLabel: 'Recebido de outro app'),
     ));
@@ -77,8 +110,11 @@ class _ShellState extends State<Shell> {
       if (i == 2 && _tab != 2) _settingsVersion++; // recarrega os campos de Ajustes
       _tab = i;
     });
-    if (i == 1 && !PrinterService.instance.isConnected && !PrinterService.instance.scanning) {
-      PrinterService.instance.startScan();
+    if (i == 1) {
+      PrinterService.instance.loadNativeDevices();
+      if (!PrinterService.instance.isConnected && !PrinterService.instance.scanning) {
+        PrinterService.instance.startScan();
+      }
     }
   }
 

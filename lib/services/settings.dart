@@ -23,6 +23,12 @@ class AppSettings extends ChangeNotifier {
   String footer = 'Obrigado pela preferência!';
   int paperMm = 58;
   bool autoReconnect = true;
+
+  // Comandos da impressora (lidos também pelo serviço de impressão do Android).
+  bool autoCut = false;
+  bool openDrawer = false;
+  int feedLines = 4;
+  int darkness = 1; // 0 claro, 1 normal, 2 escuro
   String lastPrinterId = '';
   String lastPrinterName = '';
   /// Impressoras já conectadas (endereço -> nome). Lidas também pelo serviço
@@ -45,6 +51,10 @@ class AppSettings extends ChangeNotifier {
     footer = _p.getString('footer') ?? footer;
     paperMm = _p.getInt('paperMm') ?? 58;
     autoReconnect = _p.getBool('autoReconnect') ?? true;
+    autoCut = _p.getBool('autoCut') ?? false;
+    openDrawer = _p.getBool('openDrawer') ?? false;
+    feedLines = _p.getInt('feedLines') ?? 4;
+    darkness = _p.getInt('darkness') ?? 1;
     lastPrinterId = _p.getString('lastPrinterId') ?? '';
     lastPrinterName = _p.getString('lastPrinterName') ?? '';
     try {
@@ -74,6 +84,10 @@ class AppSettings extends ChangeNotifier {
     await _p.setString('footer', footer);
     await _p.setInt('paperMm', paperMm);
     await _p.setBool('autoReconnect', autoReconnect);
+    await _p.setBool('autoCut', autoCut);
+    await _p.setBool('openDrawer', openDrawer);
+    await _p.setInt('feedLines', feedLines);
+    await _p.setInt('darkness', darkness);
     await _p.setString('lastPrinterId', lastPrinterId);
     await _p.setString('lastPrinterName', lastPrinterName);
     await _p.setString('knownPrinters', jsonEncode(knownPrinters));

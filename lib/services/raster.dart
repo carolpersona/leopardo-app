@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'settings.dart';
+
 /// Imagem 1 bit (preto/branco) no formato da cabeça térmica.
 /// [bits]: linhas de cima para baixo, 8 pixels por byte, bit mais
 /// significativo à esquerda, 1 = ponto preto.
@@ -145,13 +147,15 @@ Future<MonoBitmap> toMono(
 
   final bpr = width ~/ 8;
   final bits = Uint8List(bpr * outH);
+  // Tom da impressão (Ajustes): claro / normal / escuro.
+  final shift = (AppSettings.instance.darkness.clamp(0, 2) - 1) * 30;
   if (options.dither) {
     // Floyd–Steinberg
     for (var y = 0; y < outH; y++) {
       for (var x = 0; x < width; x++) {
         final i = y * width + x;
         final old = lum[i];
-        final black = old < 128;
+        final black = old < 128 + shift;
         final err = old - (black ? 0 : 255);
         if (black) bits[y * bpr + (x >> 3)] |= (0x80 >> (x & 7));
         if (x + 1 < width) lum[i + 1] += err * 7 / 16;
@@ -165,7 +169,7 @@ Future<MonoBitmap> toMono(
   } else {
     for (var y = 0; y < outH; y++) {
       for (var x = 0; x < width; x++) {
-        if (lum[y * width + x] < 150) {
+        if (lum[y * width + x] < 150 + shift) {
           bits[y * bpr + (x >> 3)] |= (0x80 >> (x & 7));
         }
       }

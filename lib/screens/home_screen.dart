@@ -185,7 +185,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: 8),
           stat('Papel', '${s.paperMm} mm'),
           const SizedBox(width: 8),
-          stat('Conexão', 'BLE'),
+          stat('Conexão', connected ? ps.kindLabel : '—'),
         ]),
         const SizedBox(height: 14),
         Row(children: [

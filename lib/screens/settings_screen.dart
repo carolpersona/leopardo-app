@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../services/escpos.dart';
+import '../services/printer_service.dart';
 import '../services/settings.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -46,6 +48,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     showMsg(context, 'Ajustes salvos.');
     if (widget.standalone) Navigator.of(context).pop();
+  }
+
+  Future<void> _command(List<int> cmd, String okMsg) async {
+    final ps = PrinterService.instance;
+    if (!ps.isConnected) {
+      showMsg(context, 'Conecte uma impressora primeiro (aba Impressoras).');
+      return;
+    }
+    try {
+      await ps.sendCommand([...EscPos.init, ...cmd]);
+      if (mounted) showMsg(context, okMsg);
+    } catch (e) {
+      if (mounted) showMsg(context, 'Não foi possível enviar: $e');
+    }
   }
 
   Future<void> _pickLogo() async {
@@ -154,6 +170,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SwitchRow('Reconectar sozinha ao abrir o app', s.autoReconnect,
                   (v) => setState(() => s.autoReconnect = v)),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          const SectionLabel('Comandos da impressora'),
+          LeoCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Tom da impressão',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: LeoColors.text2)),
+              const SizedBox(height: 6),
+              Segmented(
+                background: const Color(0xFFEFEFEA),
+                options: const ['Claro', 'Normal', 'Escuro'],
+                selected: s.darkness,
+                onChanged: (i) => setState(() => s.darkness = i),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                const Expanded(
+                  child: Text('Avanço do papel no final', style: TextStyle(fontSize: 15)),
+                ),
+                IconButton(
+                  tooltip: 'Menos',
+                  onPressed: s.feedLines > 0 ? () => setState(() => s.feedLines--) : null,
+                  icon: const Icon(Icons.remove),
+                ),
+                Text('${s.feedLines} linhas', style: const TextStyle(fontWeight: FontWeight.w600)),
+                IconButton(
+                  tooltip: 'Mais',
+                  onPressed: s.feedLines < 12 ? () => setState(() => s.feedLines++) : null,
+                  icon: const Icon(Icons.add),
+                ),
+              ]),
+              SwitchRow('Cortar o papel ao final (impressoras com guilhotina)', s.autoCut,
+                  (v) => setState(() => s.autoCut = v)),
+              SwitchRow('Abrir a gaveta de dinheiro ao imprimir', s.openDrawer,
+                  (v) => setState(() => s.openDrawer = v)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: () => _command(EscPos.cutPartial, 'Comando de corte enviado.'),
+                  icon: const Icon(Icons.content_cut, size: 18),
+                  label: const Text('Testar corte'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _command(EscPos.openDrawer, 'Comando de gaveta enviado.'),
+                  icon: const Icon(Icons.point_of_sale, size: 18),
+                  label: const Text('Abrir gaveta agora'),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              const Text(
+                'Corte e gaveta só funcionam em modelos que têm esses recursos. '
+                'Essas opções valem também para a impressão pelo Android.',
+                style: TextStyle(fontSize: 12, color: LeoColors.muted),
+              ),
             ]),
           ),
           const SizedBox(height: 18),

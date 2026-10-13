@@ -30,23 +30,27 @@ class _ItemCtrl {
 }
 
 class ReceiptScreen extends StatefulWidget {
-  const ReceiptScreen({super.key});
+  /// Texto recebido de outro app (ex.: pedido compartilhado do WhatsApp).
+  /// Quando informado, a tela abre no modo "Texto livre" já preenchida.
+  final String? initialText;
+  const ReceiptScreen({super.key, this.initialText});
   @override
   State<ReceiptScreen> createState() => _ReceiptScreenState();
 }
 
 class _ReceiptScreenState extends State<ReceiptScreen> {
   final settings = AppSettings.instance;
-  int _mode = 1; // 0 = texto livre, 1 = recibo
+  late int _mode = widget.initialText != null ? 0 : 1; // 0 = texto livre, 1 = recibo
 
   // Texto livre
-  final _free = TextEditingController();
+  late final _free = TextEditingController(text: widget.initialText ?? '');
   bool _large = false;
   bool _bold = false;
   bool _center = false;
 
   // Recibo
   final _client = TextEditingController();
+  final _barcode = TextEditingController();
   final List<_ItemCtrl> _items = [_ItemCtrl()];
   late final TextEditingController _footer = TextEditingController(text: settings.footer);
   bool _showLogo = true;
@@ -72,6 +76,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     _debounce?.cancel();
     _free.dispose();
     _client.dispose();
+    _barcode.dispose();
     _footer.dispose();
     for (final i in _items) {
       i.dispose();
@@ -100,6 +105,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
             items: _items.map((e) => e.toItem()).toList(),
             payment: _showPayment ? _payment : null,
             footer: _footer.text,
+            barcode: _barcode.text,
           );
     final mono = await toMono(img, w);
     final preview = await mono.toImage();
@@ -241,6 +247,15 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
             ),
           ),
         FieldLabel('Mensagem no rodapé', TextField(controller: _footer, onChanged: (_) => _changed())),
+        const SizedBox(height: 12),
+        FieldLabel(
+          'Código de barras (opcional)',
+          TextField(
+            controller: _barcode,
+            onChanged: (_) => _changed(),
+            decoration: const InputDecoration(hintText: 'Ex.: número do pedido ou da nota'),
+          ),
+        ),
       ]);
 
   Widget _itemRow(int i) {

@@ -6,11 +6,48 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **Texto e recibo**: texto livre ou recibo com itens, total, forma de pagamento e a logo da loja.
 - **Cobrança PIX**: gera o QR Code do PIX (padrão do Banco Central) com ou sem valor e imprime. Também copia o "PIX copia e cola" para enviar ao cliente pelo WhatsApp.
 - **Impressora do sistema Android**: depois de ativar em Configurações › Impressão › Leopardo, as impressoras aparecem na tela "Imprimir" de qualquer app (PDF, Chrome, Galeria, documentos).
+- **Texto compartilhado**: "Compartilhar › Leopardo" em uma mensagem de texto (ex.: pedido no WhatsApp) abre o texto pronto para imprimir.
+- **Bluetooth clássico e USB**: além de BLE, imprime em impressoras Bluetooth comuns (pareadas no Android) e por cabo USB (OTG).
+- **Comandos da impressora**: tom (claro/normal/escuro), avanço de papel, corte automático, abertura de gaveta e código de barras Code 128 no recibo.
+- **Integração com sistemas** (ERPs, PDVs, sites e apps): veja a seção abaixo.
 - Página de teste, reimpressão das últimas impressões, papel de 58 mm ou 80 mm e reconexão automática à última impressora.
 
 Tudo é impresso como imagem (comando ESC/POS `GS v 0`). Isso garante acentuação, logo e QR Code de qualquer tamanho, inclusive o do PIX, sem o limite de 254 caracteres do QR nativo.
 
 ---
+
+## Integração com outros sistemas
+
+Qualquer app Android ou página web pode mandar imprimir pela impressora conectada no app Leopardo.
+
+**Por link (sites, WhatsApp Web, sistemas web):**
+
+```
+leopardo://print?text=Pedido%20123%0ACliente%3A%20Maria
+leopardo://print?base64=G0AbYQFPbOEhChtkAw==        (bytes ESC/POS em Base64)
+```
+
+Exemplo em JavaScript:
+
+```js
+const texto = "Pedido 123\nCliente: Maria\nTotal: R$ 48,90";
+window.location.href = "leopardo://print?text=" + encodeURIComponent(texto);
+```
+
+**Por Intent (apps Android nativos, Kotlin/Java):**
+
+```kotlin
+val i = Intent("br.com.leopardo.PRINT")
+i.setPackage("br.com.leopardo.leopardo_app")
+i.putExtra("text", "Pedido 123\nTotal: R$ 48,90")   // ou:
+// i.putExtra("bytes", escposBytes)                  // ByteArray com comandos ESC/POS
+// i.putExtra("base64", "G0AbYQFP...")
+startActivity(i)
+```
+
+- `text`: impresso como imagem, com acentos e no tom configurado no app.
+- `bytes` / `base64`: comandos ESC/POS enviados sem alteração (corte, gaveta, código de barras nativo etc.).
+- O app usa a impressora que estiver conectada (ou reconecta à última). Se não houver nenhuma, abre a tela de conexão.
 
 ## Como gerar o APK sem instalar nada (GitHub Actions)
 
@@ -104,7 +141,7 @@ lib/
 
 ## Limitações conhecidas desta versão
 
-- Somente impressoras **BLE** com comandos ESC/POS. Bluetooth clássico (SPP) não está incluído.
+- Impressoras com comandos ESC/POS (BLE, Bluetooth clássico ou USB). Corte e gaveta dependem do modelo.
 - O histórico de "Recentes" é apagado quando o app fecha.
 - O nível de bateria só aparece se a impressora informar pelo serviço padrão de bateria do BLE.
 - As fontes são as do sistema; as do protótipo (Archivo e IBM Plex) podem ser adicionadas em `assets/` depois.
