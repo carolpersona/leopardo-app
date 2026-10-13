@@ -126,9 +126,14 @@ class MainActivity : FlutterActivity() {
                 }
                 "write" -> {
                     val bytes = call.argument<ByteArray>("bytes") ?: ByteArray(0)
+                    val flow = FlowControl(
+                        statusCheck = call.argument<Boolean>("statusCheck") ?: false,
+                        packetDelayMs = call.argument<Int>("packetDelay") ?: 10,
+                        disconnectWaitSec = 0
+                    )
                     worker.execute {
                         try {
-                            NativePrinters.write(bytes)
+                            NativePrinters.write(bytes, flow)
                             ok(true)
                         } catch (e: Exception) {
                             fail(e)

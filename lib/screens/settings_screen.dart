@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../services/escpos.dart';
-import '../services/printer_service.dart';
 import '../services/settings.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -48,20 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     showMsg(context, 'Ajustes salvos.');
     if (widget.standalone) Navigator.of(context).pop();
-  }
-
-  Future<void> _command(List<int> cmd, String okMsg) async {
-    final ps = PrinterService.instance;
-    if (!ps.isConnected) {
-      showMsg(context, 'Conecte uma impressora primeiro (aba Impressoras).');
-      return;
-    }
-    try {
-      await ps.sendCommand([...EscPos.init, ...cmd]);
-      if (mounted) showMsg(context, okMsg);
-    } catch (e) {
-      if (mounted) showMsg(context, 'Não foi possível enviar: $e');
-    }
   }
 
   Future<void> _pickLogo() async {
@@ -202,28 +186,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.add),
                 ),
               ]),
-              SwitchRow('Cortar o papel ao final (impressoras com guilhotina)', s.autoCut,
-                  (v) => setState(() => s.autoCut = v)),
-              SwitchRow('Abrir a gaveta de dinheiro ao imprimir', s.openDrawer,
-                  (v) => setState(() => s.openDrawer = v)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                OutlinedButton.icon(
-                  onPressed: () => _command(EscPos.cutPartial, 'Comando de corte enviado.'),
-                  icon: const Icon(Icons.content_cut, size: 18),
-                  label: const Text('Testar corte'),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          const SectionLabel('Controle de fluxo'),
+          LeoCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SwitchRow('Enviar comando de transmissão de status', s.statusCheck,
+                  (v) => setState(() => s.statusCheck = v)),
+              const Text(
+                'Ao final de cada impressão o app pede o status à impressora e espera a resposta '
+                'antes de seguir. Ajuda quando o documento sai cortado.',
+                style: TextStyle(fontSize: 12, color: LeoColors.muted, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              FieldLabel(
+                'Atraso entre pacotes para impedir o estouro de buffer (ms)',
+                DropdownButtonFormField<int>(
+                  value: AppSettings.packetDelayOptions.contains(s.packetDelay) ? s.packetDelay : 10,
+                  items: [
+                    for (final v in AppSettings.packetDelayOptions)
+                      DropdownMenuItem(value: v, child: Text('$v ms')),
+                  ],
+                  onChanged: (v) => setState(() => s.packetDelay = v ?? 10),
                 ),
-                OutlinedButton.icon(
-                  onPressed: () => _command(EscPos.openDrawer, 'Comando de gaveta enviado.'),
-                  icon: const Icon(Icons.point_of_sale, size: 18),
-                  label: const Text('Abrir gaveta agora'),
+              ),
+              const SizedBox(height: 14),
+              FieldLabel(
+                'Aguardar antes de desconectar (segundos)',
+                DropdownButtonFormField<int>(
+                  value: AppSettings.disconnectWaitOptions.contains(s.disconnectWait) ? s.disconnectWait : 1,
+                  items: [
+                    for (final v in AppSettings.disconnectWaitOptions)
+                      DropdownMenuItem(value: v, child: Text(v == 1 ? '1 segundo' : '$v segundos')),
+                  ],
+                  onChanged: (v) => setState(() => s.disconnectWait = v ?? 1),
                 ),
-              ]),
+              ),
               const SizedBox(height: 6),
               const Text(
-                'Corte e gaveta só funcionam em modelos que têm esses recursos. '
-                'Essas opções valem também para a impressão pelo Android.',
-                style: TextStyle(fontSize: 12, color: LeoColors.muted),
+                'Use se a impressora não imprimir o final do documento. '
+                'Vale para a impressão pelo Android (tela "Imprimir" de outros apps).',
+                style: TextStyle(fontSize: 12, color: LeoColors.muted, height: 1.4),
               ),
             ]),
           ),

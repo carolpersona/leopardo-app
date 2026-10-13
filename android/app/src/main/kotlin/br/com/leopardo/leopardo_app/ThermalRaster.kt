@@ -20,8 +20,6 @@ object ThermalRaster {
     /** darkness: 0 = claro, 1 = normal, 2 = escuro. */
     data class JobOptions(
         val feedLines: Int = 4,
-        val cut: Boolean = false,
-        val drawer: Boolean = false,
         val darkness: Int = 1
     )
 
@@ -29,7 +27,6 @@ object ThermalRaster {
     fun pdfToEscPos(pdf: File, paperDots: Int, opts: JobOptions, isCancelled: () -> Boolean): ByteArray {
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(0x1B, 0x40)) // ESC @
-        if (opts.drawer) out.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA.toByte())) // ESC p: abre gaveta
         val fd = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY)
         fd.use {
             val renderer = PdfRenderer(fd)
@@ -53,7 +50,6 @@ object ThermalRaster {
                 renderer.close()
             }
         }
-        if (opts.cut) out.write(byteArrayOf(0x1D, 0x56, 0x42, 0x00)) // GS V: corte parcial
         return out.toByteArray()
     }
 

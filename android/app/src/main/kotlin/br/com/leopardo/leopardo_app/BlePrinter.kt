@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
@@ -33,6 +34,9 @@ class BlePrinter(private val context: Context, private val address: String) {
 
     private var gatt: BluetoothGatt? = null
     private var writer: BluetoothGattCharacteristic? = null
+    private var notifier: BluetoothGattCharacteristic? = null
+    private var statusLatch = CountDownLatch(1)
+    private var descriptorLatch = CountDownLatch(1)
     private var mtu = 23
 
     @Volatile private var connected = false
@@ -65,6 +69,15 @@ class BlePrinter(private val context: Context, private val address: String) {
         }
 
         @Deprecated("API antiga mantida para Android < 13")
+        override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic) {
+            statusLatch.countDown()
+        }
+
+        override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
+            descriptorLatch.countDown()
+        }
+
+        @Deprecated("API antiga mantida para Android < 13")
         override fun onCharacteristicWrite(
             g: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int
         ) {
@@ -73,16 +86,18 @@ class BlePrinter(private val context: Context, private val address: String) {
     }
 
     /** Conecta, descobre o canal de escrita e envia os dados. Lança exceção com mensagem em português. */
-    fun send(data: ByteArray, isCancelled: () -> Boolean) {
+    fun send(data: ByteArray, flow: FlowControl, isCancelled: () -> Boolean) {
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = manager.adapter ?: throw IllegalStateException("Bluetooth indisponível neste aparelho")
         if (!adapter.isEnabled) throw IllegalStateException("Ative o Bluetooth do celular")
         val device = adapter.getRemoteDevice(address)
         try {
             connect(device)
-            transmit(data, isCancelled)
+            if (flow.statusCheck) enableNotifications()
+            transmit(data, flow.packetDelayMs, isCancelled)
+            if (flow.statusCheck) waitStatus(flow.packetDelayMs)
             // Dá tempo para a impressora receber o fim do buffer antes de desconectar.
-            Thread.sleep(800)
+            if (flow.disconnectWaitSec > 0) Thread.sleep(flow.disconnectWaitSec * 1000L)
         } finally {
             close()
         }
@@ -105,6 +120,32 @@ class BlePrinter(private val context: Context, private val address: String) {
         g.discoverServices()
         servicesLatch.await(10, TimeUnit.SECONDS)
         writer = pickWriter(g) ?: throw IllegalStateException("Impressora sem canal de impressão compatível")
+        // Canal de resposta (status) no mesmo serviço do canal de escrita.
+        val notifyMask = BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_INDICATE
+        notifier = writer?.service?.characteristics?.firstOrNull { (it.properties and notifyMask) != 0 }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun enableNotifications() {
+        val g = gatt ?: return
+        val n = notifier ?: return
+        try {
+            g.setCharacteristicNotification(n, true)
+            val cccd = n.getDescriptor(java.util.UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")) ?: return
+            cccd.value = if ((n.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0)
+                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            else BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+            descriptorLatch = CountDownLatch(1)
+            if (g.writeDescriptor(cccd)) descriptorLatch.await(3, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+        }
+    }
+
+    /** Envia DLE EOT 1 e espera a impressora responder (até 5 s). */
+    private fun waitStatus(delayMs: Int) {
+        statusLatch = CountDownLatch(1)
+        transmit(FlowControl.STATUS_REQUEST, delayMs) { false }
+        if (notifier != null) statusLatch.await(5, TimeUnit.SECONDS)
     }
 
     private fun writable(c: BluetoothGattCharacteristic): Boolean {
@@ -131,7 +172,7 @@ class BlePrinter(private val context: Context, private val address: String) {
     }
 
     @Suppress("DEPRECATION")
-    private fun transmit(data: ByteArray, isCancelled: () -> Boolean) {
+    private fun transmit(data: ByteArray, delayMs: Int, isCancelled: () -> Boolean) {
         val g = gatt ?: return
         val c = writer ?: return
         val noResponse = (c.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
@@ -156,7 +197,7 @@ class BlePrinter(private val context: Context, private val address: String) {
             }
             if (!ok) throw IllegalStateException("Falha ao enviar dados para a impressora")
             writeLatch.await(3, TimeUnit.SECONDS)
-            if (noResponse) Thread.sleep(12)
+            if (delayMs > 0) Thread.sleep(delayMs.toLong())
             i = end
         }
     }

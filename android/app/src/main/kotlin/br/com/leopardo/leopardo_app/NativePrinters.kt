@@ -16,6 +16,7 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.os.Build
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
@@ -31,9 +32,11 @@ object NativePrinters {
 
     private var classicSocket: BluetoothSocket? = null
     private var classicOut: OutputStream? = null
+    private var classicIn: InputStream? = null
     private var usbConn: UsbDeviceConnection? = null
     private var usbIface: UsbInterface? = null
     private var usbOut: UsbEndpoint? = null
+    private var usbIn: UsbEndpoint? = null
 
     @Volatile var connectedId: String? = null
         private set
@@ -91,6 +94,7 @@ object NativePrinters {
         }
         classicSocket = socket
         classicOut = socket!!.outputStream
+        classicIn = try { socket.inputStream } catch (e: Exception) { null }
         connectedId = "classic:$address"
     }
 
@@ -175,6 +179,9 @@ object NativePrinters {
         usbConn = conn
         usbIface = io.first
         usbOut = io.second
+        usbIn = (0 until io.first.endpointCount).map { io.first.getEndpoint(it) }.firstOrNull {
+            it.type == UsbConstants.USB_ENDPOINT_XFER_BULK && it.direction == UsbConstants.USB_DIR_IN
+        }
         connectedId = "usb:${device.deviceName}"
         return null
     }
@@ -182,30 +189,35 @@ object NativePrinters {
     // ---------- Comum ----------
 
     @Synchronized
-    fun write(data: ByteArray) {
+    fun write(data: ByteArray, flow: FlowControl = FlowControl()) {
         val out = classicOut
         val conn = usbConn
         val ep = usbOut
+        val delay = flow.packetDelayMs.toLong()
         when {
             out != null -> {
                 try {
+                    // Pacotes menores quando há pausa configurada, para dar ritmo ao envio.
+                    val size = if (delay > 0) 512 else 2048
                     var i = 0
                     while (i < data.size) {
-                        val n = minOf(1024, data.size - i)
+                        val n = minOf(size, data.size - i)
                         out.write(data, i, n)
                         out.flush()
                         i += n
-                        Thread.sleep(5)
+                        if (delay > 0) Thread.sleep(delay)
                     }
+                    if (flow.statusCheck) waitClassicStatus(out)
                 } catch (e: Exception) {
                     disconnect()
                     throw IllegalStateException("A impressora desconectou")
                 }
             }
             conn != null && ep != null -> {
+                val size = if (delay > 0) 4096 else 16384
                 var i = 0
                 while (i < data.size) {
-                    val n = minOf(16384, data.size - i)
+                    val n = minOf(size, data.size - i)
                     val chunk = data.copyOfRange(i, i + n)
                     val sent = conn.bulkTransfer(ep, chunk, n, 5000)
                     if (sent < 0) {
@@ -213,9 +225,36 @@ object NativePrinters {
                         throw IllegalStateException("Falha ao enviar pela USB")
                     }
                     i += n
+                    if (delay > 0) Thread.sleep(delay)
+                }
+                if (flow.statusCheck) {
+                    conn.bulkTransfer(ep, FlowControl.STATUS_REQUEST, FlowControl.STATUS_REQUEST.size, 2000)
+                    usbIn?.let { inp ->
+                        val buf = ByteArray(64)
+                        conn.bulkTransfer(inp, buf, buf.size, 5000)
+                    }
                 }
             }
             else -> throw IllegalStateException("Impressora não conectada")
+        }
+    }
+
+    /** Envia DLE EOT 1 e espera a resposta da impressora (até 5 s). */
+    private fun waitClassicStatus(out: OutputStream) {
+        val input = classicIn ?: return
+        try {
+            while (input.available() > 0) input.read() // descarta respostas antigas
+        } catch (e: Exception) {
+        }
+        out.write(FlowControl.STATUS_REQUEST)
+        out.flush()
+        val until = System.currentTimeMillis() + 5000
+        while (System.currentTimeMillis() < until) {
+            if (input.available() > 0) {
+                input.read()
+                return
+            }
+            Thread.sleep(20)
         }
     }
 
@@ -236,6 +275,8 @@ object NativePrinters {
         }
         classicSocket = null
         classicOut = null
+        classicIn = null
+        usbIn = null
         usbConn = null
         usbIface = null
         usbOut = null
@@ -246,17 +287,18 @@ object NativePrinters {
      * Envio avulso usado pelo serviço de impressão do Android: reaproveita a conexão
      * do app se for a mesma impressora; senão abre, envia e fecha.
      */
-    fun sendOnce(context: Context, id: String, data: ByteArray) {
+    fun sendOnce(context: Context, id: String, data: ByteArray, flow: FlowControl) {
         if (connectedId == id) {
-            write(data)
+            write(data, flow)
             return
         }
+        val wait = flow.disconnectWaitSec * 1000L
         when {
             id.startsWith("classic:") -> {
                 connectClassic(context, id.removePrefix("classic:"))
                 try {
-                    write(data)
-                    Thread.sleep(800)
+                    write(data, flow)
+                    if (wait > 0) Thread.sleep(wait)
                 } finally {
                     disconnect()
                 }
@@ -271,7 +313,8 @@ object NativePrinters {
                 val err = openUsb(um, device)
                 if (err != null) throw IllegalStateException(err)
                 try {
-                    write(data)
+                    write(data, flow)
+                    if (wait > 0) Thread.sleep(wait)
                 } finally {
                     disconnect()
                 }

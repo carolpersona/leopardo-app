@@ -31,6 +31,7 @@ class PrinterService extends ChangeNotifier {
 
   BluetoothDevice? device;
   BluetoothCharacteristic? _writer;
+  BluetoothCharacteristic? _notifier;
   int? battery;
   bool connecting = false;
   bool scanning = false;
@@ -215,6 +216,14 @@ class PrinterService extends ChangeNotifier {
         await d.disconnect();
         throw 'nenhuma característica de escrita encontrada';
       }
+      _notifier = _pickNotifier(services, _writer!);
+      if (_notifier != null) {
+        try {
+          await _notifier!.setNotifyValue(true);
+        } catch (_) {
+          _notifier = null;
+        }
+      }
       device = d;
       battery = await _readBattery(services);
       _connSub?.cancel();
@@ -285,6 +294,7 @@ class PrinterService extends ChangeNotifier {
     _connSub?.cancel();
     device = null;
     _writer = null;
+    _notifier = null;
     battery = null;
     notifyListeners();
   }
@@ -310,6 +320,17 @@ class PrinterService extends ChangeNotifier {
     return null;
   }
 
+  /// Canal de resposta (status) no mesmo serviço do canal de escrita.
+  BluetoothCharacteristic? _pickNotifier(List<BluetoothService> services, BluetoothCharacteristic writer) {
+    for (final s in services) {
+      if (s.uuid != writer.serviceUuid) continue;
+      for (final c in s.characteristics) {
+        if (c.properties.notify || c.properties.indicate) return c;
+      }
+    }
+    return null;
+  }
+
   Future<int?> _readBattery(List<BluetoothService> services) async {
     for (final s in services) {
       if (_short(s.uuid) != '180f') continue;
@@ -326,9 +347,10 @@ class PrinterService extends ChangeNotifier {
   }
 
   Future<void> _send(Uint8List data) async {
+    final flow = AppSettings.instance;
     if (nativeId != null) {
       try {
-        await NativePrinters.write(data);
+        await NativePrinters.write(data, statusCheck: flow.statusCheck, packetDelay: flow.packetDelay);
       } on PlatformException catch (e) {
         nativeId = null;
         notifyListeners();
@@ -344,10 +366,25 @@ class PrinterService extends ChangeNotifier {
     for (var i = 0; i < data.length; i += chunk) {
       final end = math.min(i + chunk, data.length);
       await w.write(data.sublist(i, end), withoutResponse: noResp);
-      if (noResp) {
-        // Pausa curta para a impressora esvaziar o buffer.
-        await Future.delayed(const Duration(milliseconds: 12));
+      // Controle de fluxo: pausa entre pacotes para não estourar o buffer da impressora.
+      if (flow.packetDelay > 0) {
+        await Future.delayed(Duration(milliseconds: flow.packetDelay));
       }
+    }
+    if (flow.statusCheck) await _waitStatus(w);
+  }
+
+  /// Envia DLE EOT 1 e espera a resposta da impressora (até 5 s).
+  Future<void> _waitStatus(BluetoothCharacteristic w) async {
+    final n = _notifier;
+    final reply = n?.onValueReceived.first
+        .timeout(const Duration(seconds: 5))
+        .then((_) {}, onError: (_) {});
+    try {
+      await w.write(EscPos.statusRequest, withoutResponse: w.properties.writeWithoutResponse);
+      if (reply != null) await reply;
+    } catch (_) {
+      // Sem resposta: segue normalmente.
     }
   }
 
@@ -357,13 +394,7 @@ class PrinterService extends ChangeNotifier {
     notifyListeners();
     try {
       final s = AppSettings.instance;
-      await _send(EscPos.job(
-        pages,
-        copies: copies,
-        feedLines: s.feedLines,
-        cut: s.autoCut,
-        openDrawer: s.openDrawer,
-      ));
+      await _send(EscPos.job(pages, copies: copies, feedLines: s.feedLines));
     } finally {
       printing = false;
       notifyListeners();
@@ -382,7 +413,4 @@ class PrinterService extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Comando avulso (abrir gaveta, cortar papel) usado nos Ajustes.
-  Future<void> sendCommand(List<int> cmd) => sendRaw(Uint8List.fromList(cmd));
 }

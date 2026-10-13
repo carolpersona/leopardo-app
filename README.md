@@ -8,7 +8,8 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **Impressora do sistema Android**: depois de ativar em Configurações › Impressão › Leopardo, as impressoras aparecem na tela "Imprimir" de qualquer app (PDF, Chrome, Galeria, documentos).
 - **Texto compartilhado**: "Compartilhar › Leopardo" em uma mensagem de texto (ex.: pedido no WhatsApp) abre o texto pronto para imprimir.
 - **Bluetooth clássico e USB**: além de BLE, imprime em impressoras Bluetooth comuns (pareadas no Android) e por cabo USB (OTG).
-- **Comandos da impressora**: tom (claro/normal/escuro), avanço de papel, corte automático, abertura de gaveta e código de barras Code 128 no recibo.
+- **Comandos da impressora**: tom (claro/normal/escuro), avanço de papel e código de barras Code 128 no recibo.
+- **Controle de fluxo**: comando de status (DLE EOT) ao final, atraso entre pacotes (0 a 1000 ms) e espera antes de desconectar (0 a 30 s).
 - **Integração com sistemas** (ERPs, PDVs, sites e apps): veja a seção abaixo.
 - Página de teste, reimpressão das últimas impressões, papel de 58 mm ou 80 mm e reconexão automática à última impressora.
 
@@ -141,7 +142,7 @@ lib/
 
 ## Limitações conhecidas desta versão
 
-- Impressoras com comandos ESC/POS (BLE, Bluetooth clássico ou USB). Corte e gaveta dependem do modelo.
+- Impressoras com comandos ESC/POS (BLE, Bluetooth clássico ou USB).
 - O histórico de "Recentes" é apagado quando o app fecha.
 - O nível de bateria só aparece se a impressora informar pelo serviço padrão de bateria do BLE.
 - As fontes são as do sistema; as do protótipo (Archivo e IBM Plex) podem ser adicionadas em `assets/` depois.

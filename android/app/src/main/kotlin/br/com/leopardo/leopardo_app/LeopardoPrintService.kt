@@ -46,11 +46,8 @@ class LeopardoPrintService : PrintService() {
     private fun jobOptions(): ThermalRaster.JobOptions {
         val p = prefs()
         fun long(k: String, d: Long) = try { p.getLong(k, d) } catch (e: Exception) { d }
-        fun bool(k: String) = try { p.getBoolean(k, false) } catch (e: Exception) { false }
         return ThermalRaster.JobOptions(
             feedLines = long("flutter.feedLines", 4L).toInt(),
-            cut = bool("flutter.autoCut"),
-            drawer = bool("flutter.openDrawer"),
             darkness = long("flutter.darkness", 1L).toInt()
         )
     }
@@ -206,6 +203,7 @@ class LeopardoPrintService : PrintService() {
         val tmp = File(cacheDir, "print_${System.currentTimeMillis()}.pdf")
         val dots = paperDots(paperMm())
         val options = jobOptions()
+        val flow = FlowControl.fromPrefs(this)
 
         // A leitura do documento é feita logo, enquanto o descritor está válido.
         try {
@@ -223,9 +221,9 @@ class LeopardoPrintService : PrintService() {
             try {
                 val bytes = ThermalRaster.pdfToEscPos(tmp, dots, options, isCancelled)
                 if (address.startsWith("classic:") || address.startsWith("usb:")) {
-                    NativePrinters.sendOnce(this, address, bytes)
+                    NativePrinters.sendOnce(this, address, bytes, flow)
                 } else {
-                    BlePrinter(this, address).send(bytes, isCancelled)
+                    BlePrinter(this, address).send(bytes, flow, isCancelled)
                 }
             } catch (e: InterruptedException) {
                 error = null

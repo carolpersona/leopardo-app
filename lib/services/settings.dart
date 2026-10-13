@@ -25,9 +25,21 @@ class AppSettings extends ChangeNotifier {
   bool autoReconnect = true;
 
   // Comandos da impressora (lidos também pelo serviço de impressão do Android).
-  bool autoCut = false;
-  bool openDrawer = false;
   int feedLines = 4;
+
+  // Controle de fluxo
+  bool statusCheck = false; // envia DLE EOT 1 ao final e espera a resposta
+  int packetDelay = 10; // ms entre pacotes
+  int disconnectWait = 1; // segundos antes de desconectar
+  static const packetDelayOptions = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, //
+    25, 30, 35, //
+    40, 50, 60, 70, 80, 90, 100, //
+    125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, //
+    525, 550, 575, 600, 625, 650, 675, 700, 725, 750, 775, 800, 825, 850, 875, 900, //
+    925, 950, 975, 1000,
+  ];
+  static const disconnectWaitOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30];
   int darkness = 1; // 0 claro, 1 normal, 2 escuro
   String lastPrinterId = '';
   String lastPrinterName = '';
@@ -51,8 +63,9 @@ class AppSettings extends ChangeNotifier {
     footer = _p.getString('footer') ?? footer;
     paperMm = _p.getInt('paperMm') ?? 58;
     autoReconnect = _p.getBool('autoReconnect') ?? true;
-    autoCut = _p.getBool('autoCut') ?? false;
-    openDrawer = _p.getBool('openDrawer') ?? false;
+    statusCheck = _p.getBool('statusCheck') ?? false;
+    packetDelay = _p.getInt('packetDelay') ?? 10;
+    disconnectWait = _p.getInt('disconnectWait') ?? 1;
     feedLines = _p.getInt('feedLines') ?? 4;
     darkness = _p.getInt('darkness') ?? 1;
     lastPrinterId = _p.getString('lastPrinterId') ?? '';
@@ -84,8 +97,9 @@ class AppSettings extends ChangeNotifier {
     await _p.setString('footer', footer);
     await _p.setInt('paperMm', paperMm);
     await _p.setBool('autoReconnect', autoReconnect);
-    await _p.setBool('autoCut', autoCut);
-    await _p.setBool('openDrawer', openDrawer);
+    await _p.setBool('statusCheck', statusCheck);
+    await _p.setInt('packetDelay', packetDelay);
+    await _p.setInt('disconnectWait', disconnectWait);
     await _p.setInt('feedLines', feedLines);
     await _p.setInt('darkness', darkness);
     await _p.setString('lastPrinterId', lastPrinterId);
