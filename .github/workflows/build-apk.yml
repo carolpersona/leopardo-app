@@ -19,11 +19,19 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Versão fixa: garante que todos os pacotes do projeto compilam juntos.
           flutter-version: 3.24.5
           cache: true
 
+      # Gera os arquivos de plataforma que faltam (Gradle, MainActivity etc.).
+      # Arquivos que já existem no repositório (como o AndroidManifest.xml) são mantidos.
       - name: Completar projeto Android
         run: flutter create --platforms=android,ios --org br.com.leopardo --project-name leopardo_app .
+
+      # Alguns pacotes antigos compilam Java e Kotlin com versões diferentes;
+      # isto evita que o Gradle trate essa diferença como erro.
+      - name: Ajustes do Android
+        run: echo "kotlin.jvm.target.validation.mode=IGNORE" >> android/gradle.properties
 
       - name: Dependências
         run: flutter pub get
