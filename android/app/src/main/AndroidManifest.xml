@@ -51,6 +51,20 @@
                 <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
+        <!-- Faz as impressoras Leopardo aparecerem na tela "Imprimir" do Android -->
+        <service
+            android:name=".LeopardoPrintService"
+            android:label="Leopardo"
+            android:icon="@mipmap/ic_launcher"
+            android:permission="android.permission.BIND_PRINT_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.printservice.PrintService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.printservice"
+                android:resource="@xml/printservice" />
+        </service>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

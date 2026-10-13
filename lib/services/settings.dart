@@ -25,6 +25,9 @@ class AppSettings extends ChangeNotifier {
   bool autoReconnect = true;
   String lastPrinterId = '';
   String lastPrinterName = '';
+  /// Impressoras já conectadas (endereço -> nome). Lidas também pelo serviço
+  /// de impressão do Android (LeopardoPrintService.kt).
+  Map<String, String> knownPrinters = {};
   Uint8List? logoPng;
   ui.Image? logoImage;
 
@@ -44,6 +47,12 @@ class AppSettings extends ChangeNotifier {
     autoReconnect = _p.getBool('autoReconnect') ?? true;
     lastPrinterId = _p.getString('lastPrinterId') ?? '';
     lastPrinterName = _p.getString('lastPrinterName') ?? '';
+    try {
+      final raw = _p.getString('knownPrinters');
+      if (raw != null && raw.isNotEmpty) {
+        knownPrinters = Map<String, String>.from(jsonDecode(raw) as Map);
+      }
+    } catch (_) {}
     final logo = _p.getString('logoPng');
     if (logo != null && logo.isNotEmpty) {
       try {
@@ -67,6 +76,7 @@ class AppSettings extends ChangeNotifier {
     await _p.setBool('autoReconnect', autoReconnect);
     await _p.setString('lastPrinterId', lastPrinterId);
     await _p.setString('lastPrinterName', lastPrinterName);
+    await _p.setString('knownPrinters', jsonEncode(knownPrinters));
     notifyListeners();
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../services/printer_service.dart';
 import '../services/settings.dart';
+import '../services/system_print.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -105,6 +106,44 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   settings.autoReconnect = v;
                   settings.save();
                 }),
+              ),
+              const SizedBox(height: 18),
+              const SectionLabel('Imprimir de qualquer app'),
+              LeoCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(Icons.print_outlined, color: LeoColors.red),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Ative uma vez e as impressoras Leopardo passam a aparecer na tela '
+                        '"Imprimir" do Android: PDF, navegador, galeria, documentos e outros apps.',
+                        style: TextStyle(fontSize: 14, height: 1.45),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Na tela que abrir, toque em "Leopardo" e ligue a chave. '
+                    'Conecte cada impressora aqui no app pelo menos uma vez.',
+                    style: TextStyle(fontSize: 13, color: LeoColors.muted, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlineAction(
+                      label: 'Ativar no Android',
+                      icon: Icons.settings_outlined,
+                      onPressed: () async {
+                        final ok = await SystemPrint.openSettings();
+                        if (!ok && context.mounted) {
+                          showMsg(context,
+                              'Abra Configurações do celular e procure por "Impressão".');
+                        }
+                      },
+                    ),
+                  ),
+                ]),
               ),
               const SizedBox(height: 18),
               Container(

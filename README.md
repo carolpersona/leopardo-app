@@ -5,6 +5,7 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **PDF ou imagem**: escolhidos no celular ou recebidos pelo "Compartilhar › Leopardo" (WhatsApp, Galeria, Arquivos).
 - **Texto e recibo**: texto livre ou recibo com itens, total, forma de pagamento e a logo da loja.
 - **Cobrança PIX**: gera o QR Code do PIX (padrão do Banco Central) com ou sem valor e imprime. Também copia o "PIX copia e cola" para enviar ao cliente pelo WhatsApp.
+- **Impressora do sistema Android**: depois de ativar em Configurações › Impressão › Leopardo, as impressoras aparecem na tela "Imprimir" de qualquer app (PDF, Chrome, Galeria, documentos).
 - Página de teste, reimpressão das últimas impressões, papel de 58 mm ou 80 mm e reconexão automática à última impressora.
 
 Tudo é impresso como imagem (comando ESC/POS `GS v 0`). Isso garante acentuação, logo e QR Code de qualquer tamanho, inclusive o do PIX, sem o limite de 254 caracteres do QR nativo.

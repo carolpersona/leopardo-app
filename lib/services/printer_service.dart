@@ -175,6 +175,7 @@ class PrinterService extends ChangeNotifier {
       s.lastPrinterId = d.remoteId.str;
       final n = name ?? d.platformName;
       if (n.isNotEmpty) s.lastPrinterName = n;
+      s.knownPrinters[d.remoteId.str] = n.isNotEmpty ? n : d.remoteId.str;
       await s.save();
       return true;
     } catch (e) {
