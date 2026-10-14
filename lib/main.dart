@@ -15,6 +15,7 @@ import 'services/history.dart';
 import 'services/integration.dart';
 import 'services/printer_service.dart';
 import 'services/settings.dart';
+import 'services/sheets.dart';
 import 'services/warranty.dart';
 import 'theme.dart';
 
@@ -27,6 +28,7 @@ Future<void> main() async {
   await AppSettings.instance.load();
   await PrintHistory.instance.load();
   await WarrantyStore.instance.load();
+  SheetsSync.flush(); // reenvia à planilha o que ficou pendente
   runApp(const LeopardoApp());
 }
 

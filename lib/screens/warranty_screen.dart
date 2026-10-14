@@ -26,8 +26,8 @@ class WarrantyScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           children: [
             const Text(
-              'Cadastre sua impressora Leopardo para ativar a garantia de $warrantyMonths meses '
-              'e ter atendimento mais rápido no suporte.',
+              'Cadastre sua impressora Leopardo para ativar a garantia e ter atendimento mais rápido. '
+              'Garantia: PROMAX 24 meses · XR 18 meses · MXR 12 meses.',
               style: TextStyle(fontSize: 14, color: LeoColors.text2, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -150,7 +150,7 @@ class WarrantyFormScreen extends StatefulWidget {
 }
 
 class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
-  static const _models = ['Leopardo PROMAX', 'Leopardo XR', 'Leopardo MXR', 'Outro modelo'];
+  static final _models = warrantyModels.keys.toList();
   final _form = GlobalKey<FormState>();
   late final Warranty? e = widget.existing;
   late final _nome = TextEditingController(text: e?.nome ?? '');
@@ -160,7 +160,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
   late final _cidade = TextEditingController(text: e?.cidade ?? '');
   late final _serie = TextEditingController(text: e?.serie ?? '');
   late final _loja = TextEditingController(text: e?.loja ?? '');
-  late final _outro = TextEditingController();
+  late final _nf = TextEditingController(text: e?.notaNumero ?? '');
   late String _model = _initialModel();
   late DateTime? _data = e?.dataCompra;
   late String? _nota = e?.notaPath;
@@ -169,11 +169,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
 
   String _initialModel() {
     final m = e?.modelo;
-    if (m != null) {
-      if (_models.contains(m)) return m;
-      _outro.text = m;
-      return 'Outro modelo';
-    }
+    if (m != null && _models.contains(m)) return m;
     // Sugere pelo nome da impressora conectada
     final n = PrinterService.instance.deviceName.toLowerCase().replaceAll(' ', '');
     if (n.contains('promax')) return 'Leopardo PROMAX';
@@ -184,7 +180,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_nome, _doc, _tel, _email, _cidade, _serie, _loja, _outro]) {
+    for (final c in [_nome, _doc, _tel, _email, _cidade, _serie, _loja, _nf]) {
       c.dispose();
     }
     super.dispose();
@@ -226,8 +222,9 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       telefone: _tel.text.trim(),
       email: _email.text.trim(),
       cidade: _cidade.text.trim(),
-      modelo: _model == 'Outro modelo' ? (_outro.text.trim().isEmpty ? 'Outro modelo' : _outro.text.trim()) : _model,
+      modelo: _model,
       serie: _serie.text.trim(),
+      notaNumero: _nf.text.trim(),
       dataCompra: _data!,
       loja: _loja.text.trim(),
       notaPath: nota,
@@ -283,16 +280,16 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
                 FieldLabel(
                   'Modelo *',
                   DropdownButtonFormField<String>(
-                    value: _model,
+                    value: _models.contains(_model) ? _model : _models.first,
                     items: [for (final m in _models) DropdownMenuItem(value: m, child: Text(m))],
                     onChanged: (v) => setState(() => _model = v ?? _models.first),
                   ),
                 ),
-                if (_model == 'Outro modelo') ...[
-                  const SizedBox(height: 12),
-                  _field('Qual modelo?', _outro, validator: _required),
-                ] else
-                  const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 12),
+                  child: Text('Garantia deste modelo: ${warrantyMonthsFor(_model)} meses a partir da compra',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF1F7A4D), fontWeight: FontWeight.w600)),
+                ),
                 _field('Número de série *', _serie,
                     validator: _required, hint: 'Na etiqueta embaixo da impressora (S/N)'),
                 FieldLabel(
@@ -306,6 +303,7 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                _field('Nº da Nota Fiscal', _nf, type: TextInputType.number, hint: 'Ex.: 000123456'),
                 _field('Loja onde comprou', _loja, hint: 'Ex.: Mercado Livre, loja física...'),
                 const Text('Nota fiscal (foto)',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: LeoColors.text2)),

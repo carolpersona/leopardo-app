@@ -6,9 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'leopardo_contact.dart';
+import 'sheets.dart';
 
-/// Prazo de garantia a partir da data da compra.
-const warrantyMonths = 12;
+/// Modelos e prazo de garantia (meses) a partir da data da compra.
+const warrantyModels = <String, int>{
+  'Leopardo PROMAX': 24,
+  'Leopardo XR': 18,
+  'Leopardo MXR': 12,
+};
+
+int warrantyMonthsFor(String modelo) => warrantyModels[modelo] ?? 12;
 
 class Warranty {
   final String id;
@@ -19,6 +26,7 @@ class Warranty {
   String cidade;
   String modelo;
   String serie;
+  String notaNumero;
   DateTime dataCompra;
   String loja;
   String? notaPath;
@@ -34,6 +42,7 @@ class Warranty {
     required this.cidade,
     required this.modelo,
     required this.serie,
+    this.notaNumero = '',
     required this.dataCompra,
     required this.loja,
     this.notaPath,
@@ -41,7 +50,8 @@ class Warranty {
     this.enviadoEm,
   });
 
-  DateTime get validoAte => DateTime(dataCompra.year, dataCompra.month + warrantyMonths, dataCompra.day);
+  int get meses => warrantyMonthsFor(modelo);
+  DateTime get validoAte => DateTime(dataCompra.year, dataCompra.month + meses, dataCompra.day);
   bool get valida => !DateTime.now().isAfter(validoAte.add(const Duration(days: 1)));
   int get diasRestantes => validoAte.difference(DateTime.now()).inDays;
 
@@ -57,6 +67,7 @@ class Warranty {
         'cidade': cidade,
         'modelo': modelo,
         'serie': serie,
+        'notaNumero': notaNumero,
         'dataCompra': dataCompra.millisecondsSinceEpoch,
         'loja': loja,
         'notaPath': notaPath,
@@ -73,6 +84,7 @@ class Warranty {
         cidade: m['cidade'] as String? ?? '',
         modelo: m['modelo'] as String? ?? '',
         serie: m['serie'] as String? ?? '',
+        notaNumero: m['notaNumero'] as String? ?? '',
         dataCompra: DateTime.fromMillisecondsSinceEpoch((m['dataCompra'] as num).toInt()),
         loja: m['loja'] as String? ?? '',
         notaPath: m['notaPath'] as String?,
@@ -93,11 +105,12 @@ class Warranty {
     b
       ..writeln()
       ..writeln('Modelo: $modelo')
-      ..writeln('Nº de série: $serie')
-      ..writeln('Data da compra: ${fmt(dataCompra)}');
+      ..writeln('Nº de série: $serie');
+    if (notaNumero.isNotEmpty) b.writeln('Nº da nota fiscal: $notaNumero');
+    b.writeln('Data da compra: ${fmt(dataCompra)}');
     if (loja.isNotEmpty) b.writeln('Loja: $loja');
     b
-      ..writeln('Garantia até: ${fmt(validoAte)}')
+      ..writeln('Garantia: $meses meses, até ${fmt(validoAte)}')
       ..writeln('Aceita receber novidades: ${aceitaContato ? 'Sim' : 'Não'}');
     if (notaPath != null) b.writeln('\nNota fiscal em anexo.');
     return b.toString();
@@ -168,12 +181,34 @@ class WarrantyStore extends ChangeNotifier {
     await _save();
   }
 
+  /// Linha da aba "Garantias" na planilha Google.
+  Map<String, String> sheetFields(Warranty w) => {
+        'ID do cadastro': w.id,
+        'Nome': w.nome,
+        'CPF/CNPJ': w.documento,
+        'Telefone': w.telefone,
+        'E-mail': w.email,
+        'Cidade/UF': w.cidade,
+        'Modelo': w.modelo,
+        'Nº de série': w.serie,
+        'Nº da nota fiscal': w.notaNumero,
+        'Data da compra': Warranty.fmt(w.dataCompra),
+        'Loja': w.loja,
+        'Garantia (meses)': '${w.meses}',
+        'Garantia até': Warranty.fmt(w.validoAte),
+        'Aceita novidades': w.aceitaContato ? 'Sim' : 'Não',
+      };
+
   /// Envia o cadastro (ou pedido de suporte) para o WhatsApp da Leopardo.
   Future<bool> send(Warranty w, {String titulo = 'Cadastro de garantia'}) async {
     final ok = await LeopardoContact.sendWhatsApp(w.message(titulo: titulo), imagePath: w.notaPath);
-    if (ok && titulo == 'Cadastro de garantia') {
-      w.enviadoEm = DateTime.now();
-      await _save();
+    if (titulo == 'Cadastro de garantia') {
+      // Também grava na planilha Google (em segundo plano).
+      SheetsSync.send('garantia', sheetFields(w), imagePath: w.notaPath);
+      if (ok) {
+        w.enviadoEm = DateTime.now();
+        await _save();
+      }
     }
     return ok;
   }

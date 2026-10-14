@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/leopardo_contact.dart';
+import '../services/sheets.dart';
+import '../services/warranty.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -88,6 +90,21 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     final ok = await LeopardoContact.whatsapp(msg);
     if (!ok && mounted) showMsg(context, 'Não foi possível abrir o WhatsApp.');
+
+    // Registra o pedido na planilha Google (com os dados do cadastro, se houver).
+    final cliente = WarrantyStore.instance.items.isNotEmpty ? WarrantyStore.instance.items.first : null;
+    SheetsSync.send('pedido', {
+      'Produto': p.name,
+      'Modelo': m.label,
+      'Tamanho': p.unit == 'caixa' ? s.description : '',
+      'Quantidade': m.askQuantity ? '$q' : '',
+      'Unidade': m.askQuantity ? (p.unit == 'caixa' ? 'caixa(s)' : 'unidade(s)') : '',
+      'Total de bobinas': (p.unit == 'caixa' && s.perBox != null) ? '${q * s.perBox!}' : '',
+      'Nome': cliente?.nome ?? '',
+      'Telefone': cliente?.telefone ?? '',
+      'Cidade/UF': cliente?.cidade ?? '',
+      'Mensagem': msg,
+    });
   }
 
   Widget _label(String t) => Padding(
