@@ -353,7 +353,9 @@ class BoletoReader {
     } else {
       rest = rest.replaceFirst(RegExp(r'^[^\s\-–/]*'), '').replaceFirst(RegExp(r'^[\s\-–/]+'), '').trim();
     }
-    if (rest.length >= 2 && !rest.startsWith('(')) out.add(rest);
+    // Continuação do rótulo ("... do Beneficiário") não é valor.
+    final restIsLabel = !RegExp(r'\d').hasMatch(rest) && RegExp(r'^(d[oae]s?|e)\b', caseSensitive: false).hasMatch(rest);
+    if (rest.length >= 2 && !rest.startsWith('(') && !restIsLabel) out.add(rest);
 
     bool sameLine(_Seg s) => (s.y - label.y).abs() <= math.max(label.h, s.h) * 0.6;
 
