@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/settings.dart';
+import '../services/sheets.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -25,6 +26,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final _pixName = TextEditingController(text: s.pixName);
   late final _pixCity = TextEditingController(text: s.pixCity);
   late final _footer = TextEditingController(text: s.footer);
+
+  bool _testing = false;
+
+  Future<void> _testSheets() async {
+    setState(() => _testing = true);
+    await SheetsSync.flush();
+    final msg = await SheetsSync.test();
+    if (!mounted) return;
+    setState(() => _testing = false);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Conexão com a Leopardo'),
+        content: Text(msg),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -228,6 +247,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Use se a impressora não imprimir o final do documento. '
                 'Vale para a impressão pelo Android (tela "Imprimir" de outros apps).',
                 style: TextStyle(fontSize: 12, color: LeoColors.muted, height: 1.4),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          const SectionLabel('Conexão com a Leopardo'),
+          LeoCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text(
+                'Garantias, pedidos da loja e indicações são enviados para a Leopardo. '
+                'Toque para conferir se a conexão está funcionando.',
+                style: TextStyle(fontSize: 13, color: LeoColors.text2, height: 1.4),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlineAction(
+                  label: _testing ? 'Testando…' : 'Testar conexão',
+                  icon: Icons.cloud_done_outlined,
+                  onPressed: _testing ? null : _testSheets,
+                ),
               ),
             ]),
           ),

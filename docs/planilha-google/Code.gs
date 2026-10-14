@@ -65,6 +65,7 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.token !== TOKEN) return resposta({ ok: false, erro: 'token' });
+    if (data.type === 'teste') return resposta({ ok: true, teste: true }); // botão "Testar conexão" do app
     const aba = ABAS[data.type];
     if (!aba) return resposta({ ok: false, erro: 'tipo' });
 
