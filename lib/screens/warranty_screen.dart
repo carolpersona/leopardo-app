@@ -150,7 +150,7 @@ class WarrantyFormScreen extends StatefulWidget {
 }
 
 class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
-  static const _models = ['Leopardo PROMAX', 'Leopardo XR', 'Leopardo A7', 'Outro modelo'];
+  static const _models = ['Leopardo PROMAX', 'Leopardo XR', 'Leopardo MXR', 'Outro modelo'];
   final _form = GlobalKey<FormState>();
   late final Warranty? e = widget.existing;
   late final _nome = TextEditingController(text: e?.nome ?? '');
@@ -177,8 +177,8 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
     // Sugere pelo nome da impressora conectada
     final n = PrinterService.instance.deviceName.toLowerCase().replaceAll(' ', '');
     if (n.contains('promax')) return 'Leopardo PROMAX';
+    if (n.contains('mxr')) return 'Leopardo MXR';
     if (n.contains('xr')) return 'Leopardo XR';
-    if (n.contains('a7')) return 'Leopardo A7';
     return _models.first;
   }
 
