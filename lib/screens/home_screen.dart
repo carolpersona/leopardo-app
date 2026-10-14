@@ -75,7 +75,7 @@ class HomeScreen extends StatelessWidget {
                   const Text('O que você quer imprimir?',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
-                  _option(context, Icons.picture_as_pdf_outlined, 'PDF ou imagem',
+                  _option(context, Icons.picture_as_pdf_outlined, 'PDF, imagem ou Word',
                       'Da galeria, arquivos ou WhatsApp', () => _push(context, const FilePrintScreen())),
                   _option(context, Icons.request_page_outlined, 'Boleto em 80 mm',
                       'PDF A4 refeito para a bobina', () => _push(context, const BoletoScreen())),

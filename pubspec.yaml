@@ -22,6 +22,9 @@ dependencies:
   receive_sharing_intent: ^1.8.1
   # Geração da matriz do QR Code (PIX)
   qr: ^3.0.2
+  # Leitura de arquivos Word (.docx)
+  archive: ^3.6.1
+  xml: ^6.5.0
   shared_preferences: ^2.3.2
 
 dev_dependencies:

@@ -116,6 +116,27 @@ object BoletoAnalyzer {
         return out
     }
 
+    /** Só o texto do PDF (para reorganizar o documento na largura da bobina). */
+    fun textOnly(context: Context, path: String): Map<String, Any> {
+        val tokens = ArrayList<Token>()
+        val pages = ArrayList<Map<String, Any>>()
+        PDFBoxResourceLoader.init(context.applicationContext)
+        PDDocument.load(File(path)).use { doc ->
+            val collector = Collector()
+            val count = minOf(doc.numberOfPages, 200)
+            for (i in 0 until count) {
+                val box = doc.getPage(i).mediaBox
+                pages.add(mapOf("width" to box.width.toDouble(), "height" to box.height.toDouble()))
+                collector.page = i
+                collector.setStartPage(i + 1)
+                collector.setEndPage(i + 1)
+                collector.getText(doc)
+            }
+            tokens.addAll(collector.tokens)
+        }
+        return mapOf("segments" to group(tokens), "pages" to pages)
+    }
+
     /** Junta palavras da mesma linha que estão próximas (mesma célula do boleto). */
     private fun group(tokens: List<Token>): List<Map<String, Any>> {
         val out = ArrayList<Map<String, Any>>()

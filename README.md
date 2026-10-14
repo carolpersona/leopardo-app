@@ -14,6 +14,7 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **Boleto pela tela "Imprimir" do Android**: ao imprimir um boleto em PDF de qualquer app escolhendo a Leopardo, ele sai no mesmo layout 80 mm (pode ser desligado na aba Impressoras).
 - **Leopardo no app**: botão de WhatsApp (11) 96304-4242, Loja Leopardo (bobinas, impressoras e acessórios pelo WhatsApp), Diagnóstico (página de teste + relatório ao suporte) e Cadastro e garantia (12 meses, com foto da nota).
 - **Histórico**: as impressões ficam salvas no aparelho para reimprimir; dá para excluir uma ou limpar tudo.
+- **Reorganizar documentos para 80 mm**: PDF com texto, Word (.docx) e .txt são remontados na largura da bobina com letra legível (Pequena/Média/Grande).
 - **Integração com sistemas** (ERPs, PDVs, sites e apps): veja a seção abaixo.
 - Página de teste, reimpressão das últimas impressões, papel de 58 mm ou 80 mm e reconexão automática à última impressora.
 

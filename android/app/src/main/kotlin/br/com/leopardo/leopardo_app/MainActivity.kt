@@ -173,6 +173,17 @@ class MainActivity : FlutterActivity() {
                             )
                         )
                     }
+                    "pdfText" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        worker.execute {
+                            try {
+                                val r = BoletoAnalyzer.textOnly(this, path)
+                                main.post { result.success(r) }
+                            } catch (e: Exception) {
+                                main.post { result.error("PDF", e.message ?: "Erro ao ler o PDF", null) }
+                            }
+                        }
+                    }
                     "takePrintRequest" -> {
                         result.success(pendingRequest)
                         pendingRequest = null
