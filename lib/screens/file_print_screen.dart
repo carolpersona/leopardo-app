@@ -11,6 +11,7 @@ import '../services/raster.dart';
 import '../services/settings.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'boleto_screen.dart';
 import 'connect_screen.dart';
 
 /// Imprimir PDF ou imagem (da galeria, dos arquivos ou compartilhado pelo WhatsApp).
@@ -188,6 +189,31 @@ class _FilePrintScreenState extends State<FilePrintScreen> {
             ]),
           ),
           const SizedBox(height: 16),
+          if (_isPdf && _path != null) ...[
+            Material(
+              color: const Color(0xFFFFF1F1),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => BoletoScreen(path: _path)),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Row(children: [
+                    Icon(Icons.request_page_outlined, color: LeoColors.red),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text('É um boleto? Refazer o layout para 80 mm',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    ),
+                    Icon(Icons.chevron_right),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_error != null)
             LeoCard(child: Text(_error!, style: const TextStyle(color: LeoColors.red)))
           else ...[

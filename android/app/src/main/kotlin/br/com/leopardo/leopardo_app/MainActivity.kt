@@ -77,6 +77,17 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    "analyzeBoleto" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        worker.execute {
+                            try {
+                                val r = BoletoAnalyzer.analyze(this, path)
+                                main.post { result.success(r) }
+                            } catch (e: Exception) {
+                                main.post { result.error("BOLETO", e.message ?: "Erro ao ler o PDF", null) }
+                            }
+                        }
+                    }
                     "takePrintRequest" -> {
                         result.success(pendingRequest)
                         pendingRequest = null

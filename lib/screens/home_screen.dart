@@ -8,6 +8,7 @@ import '../services/settings.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'connect_screen.dart';
+import 'boleto_screen.dart';
 import 'file_print_screen.dart';
 import 'pix_screen.dart';
 import 'receipt_screen.dart';
@@ -70,6 +71,8 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   _option(context, Icons.picture_as_pdf_outlined, 'PDF ou imagem',
                       'Da galeria, arquivos ou WhatsApp', () => _push(context, const FilePrintScreen())),
+                  _option(context, Icons.request_page_outlined, 'Boleto em 80 mm',
+                      'PDF A4 refeito para a bobina', () => _push(context, const BoletoScreen())),
                   _option(context, Icons.receipt_long_outlined, 'Texto e recibo',
                       'Recibo com itens, total e sua logo', () => _push(context, const ReceiptScreen())),
                   _option(context, Icons.qr_code_2, 'Cobrança PIX', 'Gera e imprime o QR Code do valor',
