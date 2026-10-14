@@ -14,9 +14,9 @@ import 'boleto.dart';
 /// y = largura da bobina (0 = lado direito do papel).
 class BoletoRenderer {
   static const _black = Color(0xFF000000);
-  static const _recLen = 430.0;
+  static const _recLen = 500.0;
   static const _gap = 36.0;
-  static const _fichaLen = 1160.0;
+  static const _fichaLen = 1320.0;
   static const _margin = 10.0;
 
   final Canvas c;
@@ -80,7 +80,7 @@ class BoletoRenderer {
         style: TextStyle(
           color: _black,
           fontSize: size * k,
-          fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+          fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
           height: 1.12,
         ),
       ),
@@ -104,24 +104,25 @@ class BoletoRenderer {
     double hh, {
     TextAlign align = TextAlign.left,
     bool bold = false,
-    double size = 17,
+    double size = 20,
     int maxLines = 1,
     bool border = true,
   }) {
     if (border) _rect(x, y, w, hh);
-    _text(label, x + 4, y + 2 * k, w - 8, size: 11.5);
-    _text(value, x + 4, y + 14 * k, w - 8, size: size, bold: bold, align: align, maxLines: maxLines);
+    _text(label, x + 4, y + 2 * k, w - 8, size: 13.5);
+    _text(value, x + 4, y + 16.5 * k, w - 8, size: size, bold: bold, align: align, maxLines: maxLines);
   }
 
   void _header(BoletoData d, double ox, double len, double top, double hh, {required String right, double rightSize = 20}) {
     final name = d['bancoNome'];
     final code = d['banco'];
-    const nameW = 200.0;
-    _text(name, ox + 2, top + (hh - 30 * k) / 2, nameW - 6, size: 25, bold: true);
-    _vline(ox + nameW, top + 6 * k, top + hh, width: 3);
-    _text(code, ox + nameW, top + (hh - 34 * k) / 2, 96, size: 29, bold: true, align: TextAlign.center);
-    _vline(ox + nameW + 96, top + 6 * k, top + hh, width: 3);
-    _text(right, ox + nameW + 104, top + (hh - rightSize * 1.15 * k) / 2, len - nameW - 108,
+    const nameW = 210.0;
+    const codeW = 110.0;
+    _text(name, ox + 2, top + (hh - 32 * k) / 2, nameW - 6, size: 28, bold: true);
+    _vline(ox + nameW, top + 4 * k, top + hh, width: 3);
+    _text(code, ox + nameW, top + (hh - 37 * k) / 2, codeW, size: 32, bold: true, align: TextAlign.center);
+    _vline(ox + nameW + codeW, top + 4 * k, top + hh, width: 3);
+    _text(right, ox + nameW + codeW + 8, top + (hh - rightSize * 1.15 * k) / 2, len - nameW - codeW - 12,
         size: rightSize, bold: true, align: TextAlign.right);
     _hline(ox, ox + len, top + hh, width: 3);
   }
@@ -193,53 +194,53 @@ class BoletoRenderer {
     const len = _recLen;
     final top = 6 * k;
     final hh = 46 * k;
-    _header(d, ox, len, top, hh, right: 'Recibo do Pagador', rightSize: 14);
+    _header(d, ox, len, top, hh, right: 'Recibo do Pagador', rightSize: 17);
     final gy = top + hh;
-    final rh = 30 * k;
-    const leftW = 250.0;
+    final rh = 38 * k;
+    const leftW = 290.0;
     const rightW = len - leftW;
 
-    _cell('Beneficiário', d['beneficiario'], ox, gy, leftW, rh * 2, size: 13.5, maxLines: 3);
+    _cell('Beneficiário', d['beneficiario'], ox, gy, leftW, rh * 2, size: 17, maxLines: 3);
     _cell('Nº do Documento', d['numeroDocumento'], ox, gy + rh * 2, leftW, rh);
-    _cell('Agência / Código do Beneficiário', d['agenciaCodigo'], ox, gy + rh * 3, leftW, rh);
+    _cell('Agência / Código Beneficiário', d['agenciaCodigo'], ox, gy + rh * 3, leftW, rh);
     _cell('Nosso Número', d['nossoNumero'], ox, gy + rh * 4, leftW, rh);
 
     final rx = ox + leftW;
-    _cell('Vencimento', d['vencimento'], rx, gy, rightW, rh, align: TextAlign.right, bold: true);
-    _cell('(=) Valor do Documento', d['valor'], rx, gy + rh, rightW, rh, align: TextAlign.right, bold: true);
+    _cell('Vencimento', d['vencimento'], rx, gy, rightW, rh, align: TextAlign.right, bold: true, size: 21);
+    _cell('(=) Valor do Documento', d['valor'], rx, gy + rh, rightW, rh, align: TextAlign.right, bold: true, size: 21);
     _cell('(-) Desconto / Abatimento', '', rx, gy + rh * 2, rightW, rh);
     _cell('(+) Mora / Multa / Juros', '', rx, gy + rh * 3, rightW, rh);
     _cell('(=) Valor Cobrado', '', rx, gy + rh * 4, rightW, rh);
 
     final py = gy + rh * 5;
-    _cell('Pagador', d['pagador'], ox, py, len, rh * 2, size: 14, maxLines: 3);
+    _cell('Pagador', d['pagador'], ox, py, len, rh * 2, size: 17, maxLines: 3);
 
-    var y = py + rh * 2 + 6 * k;
-    final bottom = h - 22 * k;
+    final y = py + rh * 2 + 6 * k;
+    final bottom = h - 20 * k;
     final pix = d['pix'];
     if (pix.isNotEmpty) {
-      final q = math.min(bottom - y, 210 * k);
+      final q = math.min(bottom - y, 250 * k);
       _qr(pix, ox, y, q);
       final tx = ox + q + 10;
-      _text('Pague com PIX', tx, y + 14 * k, len - q - 14, size: 20, bold: true);
-      _text('Abra o app do seu banco e aponte a câmera para o QR Code.', tx, y + 44 * k, len - q - 14,
-          size: 13, maxLines: 4);
+      _text('Pague com PIX', tx, y + 14 * k, len - q - 14, size: 24, bold: true);
+      _text('Abra o app do seu banco e aponte a câmera para o QR Code.', tx, y + 48 * k, len - q - 14,
+          size: 16, maxLines: 5);
     } else {
-      _text('Linha digitável', ox + 2, y, len - 4, size: 11.5);
-      _text(d['linha'], ox + 2, y + 14 * k, len - 4, size: 15, bold: true, maxLines: 2);
+      _text('Linha digitável', ox + 2, y, len - 4, size: 13.5);
+      _text(d['linha'], ox + 2, y + 17 * k, len - 4, size: 20, bold: true, maxLines: 3);
     }
-    _text('Autenticação mecânica - Recibo do Pagador', ox, h - 18 * k, len, size: 11, align: TextAlign.right);
+    _text('Autenticação mecânica - Recibo do Pagador', ox, h - 19 * k, len, size: 13, align: TextAlign.right);
   }
 
   void _ficha(BoletoData d, double ox) {
     const len = _fichaLen;
     final top = 6 * k;
-    final hh = 50 * k;
-    _header(d, ox, len, top, hh, right: d['linha'], rightSize: 21);
+    final hh = 46 * k;
+    _header(d, ox, len, top, hh, right: d['linha'], rightSize: 24);
 
     final gy = top + hh;
-    final rh = 30 * k;
-    const rightW = 270.0;
+    final rh = 38 * k;
+    const rightW = 300.0;
     const leftW = len - rightW;
     final rx = ox + leftW;
 
@@ -257,26 +258,27 @@ class BoletoRenderer {
     ];
     for (var i = 0; i < right.length; i++) {
       final strong = i == 0 || i == 3;
-      _cell(right[i][0], right[i][1], rx, gy + rh * i, rightW, rh, align: TextAlign.right, bold: strong);
+      _cell(right[i][0], right[i][1], rx, gy + rh * i, rightW, rh,
+          align: TextAlign.right, bold: strong, size: strong ? 21 : 20);
     }
 
     // Coluna da esquerda
     _cell('Local de Pagamento',
         d['localPagamento'].isEmpty ? 'Pagável em qualquer banco até o vencimento' : d['localPagamento'],
-        ox, gy, leftW, rh, size: 15);
+        ox, gy, leftW, rh, size: 18);
     _cell('Beneficiário', d['beneficiario'].replaceAll('\n', '  ·  '), ox, gy + rh, leftW, rh * 2,
-        size: 14.5, maxLines: 2);
+        size: 18, maxLines: 3);
 
     void row(double y, List<List<String>> cells, List<double> frac) {
       var x = ox;
       for (var i = 0; i < cells.length; i++) {
         final w = leftW * frac[i];
-        _cell(cells[i][0], cells[i][1], x, y, w, rh, size: 15.5);
+        _cell(cells[i][0], cells[i][1], x, y, w, rh, size: 19);
         x += w;
       }
     }
 
-    const frac = [0.2, 0.26, 0.16, 0.1, 0.28];
+    const frac = [0.2, 0.25, 0.16, 0.11, 0.28];
     row(gy + rh * 3, [
       ['Data do Documento', d['dataDocumento']],
       ['Nº do Documento', d['numeroDocumento']],
@@ -295,29 +297,32 @@ class BoletoRenderer {
     final iy = gy + rh * 5;
     final ih = rh * 4;
     _rect(ox, iy, leftW, ih);
-    _text('Instruções (texto de responsabilidade do beneficiário)', ox + 4, iy + 2 * k, leftW - 8, size: 11.5);
-    _text(d['instrucoes'], ox + 4, iy + 15 * k, leftW - 8, size: 13, maxLines: 7);
+    _text('Instruções (texto de responsabilidade do beneficiário)', ox + 4, iy + 2 * k, leftW - 8, size: 13.5);
+    _text(d['instrucoes'], ox + 4, iy + 18 * k, leftW - 8, size: 16, maxLines: 7);
 
-    // Pagador
+    // Pagador (e sacador/avalista, quando houver)
     final py = gy + rh * 9;
-    final ph = 58 * k;
+    final ph = 62 * k;
     _rect(ox, py, len, ph);
-    _text('Pagador', ox + 4, py + 2 * k, 120, size: 11.5);
-    _text(d['pagador'].replaceAll('\n', '  ·  '), ox + 4, py + 14 * k, len - 8, size: 14.5, maxLines: 2);
-    if (d['sacador'].isNotEmpty) {
-      _text('Sacador/Avalista: ${d['sacador']}', ox + 4, py + 41 * k, len - 8, size: 12);
-    }
-    _text('Autenticação mecânica - Ficha de Compensação', ox, py + ph + 2 * k, len, size: 11, align: TextAlign.right);
+    _text('Pagador', ox + 4, py + 2 * k, 160, size: 13.5);
+    var pagador = d['pagador'].replaceAll('\n', '  ·  ');
+    if (d['sacador'].isNotEmpty) pagador = '$pagador  ·  Sacador/Avalista: ${d['sacador']}';
+    _text(pagador, ox + 4, py + 17 * k, len - 8, size: 18, maxLines: 2);
 
-    // Código de barras
+    // Código de barras (tamanho oficial) e autenticação ao lado
     final bc = d.barcode;
-    final by = py + ph + 18 * k;
-    final bh = math.min(104 * k, h - by - 6 * k);
+    final by = py + ph + 8 * k;
+    final bh = math.min(104 * k, h - by - 4 * k);
+    const bx = 40.0;
+    const barcodeLen = 810.0;
     if (bc != null && bh > 20) {
-      _i25(bc, ox + 40, by, bh);
+      _i25(bc, ox + bx, by, bh);
     } else {
-      _text('Linha digitável inválida: confira os dados antes de imprimir.', ox + 30, by + 10 * k, len - 60,
-          size: 18, bold: true);
+      _text('Linha digitável inválida: confira os dados antes de imprimir.', ox + bx, by + 10 * k, len - 80,
+          size: 20, bold: true);
     }
+    final ax = ox + bx + barcodeLen + 30;
+    _text('Autenticação mecânica\nFicha de Compensação', ax, by + bh / 2 - 16 * k, ox + len - ax,
+        size: 14, align: TextAlign.right, maxLines: 2);
   }
 }
