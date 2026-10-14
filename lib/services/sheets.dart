@@ -10,7 +10,8 @@ import 'leopardo_contact.dart';
 ///
 /// Para ativar: cole em [sheetsUrl] o endereço gerado na publicação do script
 /// (docs/planilha-google/Code.gs). Vazio = não envia.
-const sheetsUrl = '';
+const sheetsUrl =
+    'https://script.google.com/a/macros/inputservice.com.br/s/AKfycbwCHORUQHWGyYYgXH1uYPDpzWR0sXNwt0uLEf3XDj8n9VG_q6NN_6NxExPuHgWZufr_/exec';
 
 /// Senha simples combinada com o script (constante TOKEN no Code.gs).
 const sheetsToken = 'leopardo-app-2026';
@@ -63,7 +64,12 @@ class SheetsSync {
       final res = await req.close().timeout(const Duration(seconds: 40));
       await res.drain<void>();
       // O Apps Script grava a linha e responde 302 (redirecionamento) ou 200.
-      return res.statusCode == 200 || res.statusCode == 302;
+      // Redirecionamento para o login do Google = acesso restrito (não gravou).
+      if (res.statusCode == 302) {
+        final loc = res.headers.value('location') ?? '';
+        return !loc.contains('accounts.google.com') && !loc.contains('ServiceLogin');
+      }
+      return res.statusCode == 200;
     } catch (_) {
       return false;
     } finally {
