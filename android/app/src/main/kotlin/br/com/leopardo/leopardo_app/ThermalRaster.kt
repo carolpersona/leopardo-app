@@ -43,7 +43,7 @@ object ThermalRaster {
                     bmp.recycle()
                     if (mono != null) {
                         writeRaster(out, mono.first, mono.second, paperDots)
-                        out.write(byteArrayOf(0x1B, 0x64, opts.feedLines.coerceIn(0, 20).toByte())) // ESC d n
+                        feed(out, opts.feedLines, paperDots)
                     }
                 }
             } finally {
@@ -75,7 +75,7 @@ object ThermalRaster {
                 }
             }
             writeRaster(out, bits, h, paperDots)
-            out.write(byteArrayOf(0x1B, 0x64, opts.feedLines.coerceIn(0, 20).toByte()))
+            feed(out, opts.feedLines, paperDots)
         }
         return out.toByteArray()
     }
@@ -170,6 +170,17 @@ object ThermalRaster {
             }
         }
         return Pair(bits, outH)
+    }
+
+    /**
+     * Avanço de papel com linhas em branco (imagem) em vez de ESC d: alguns modelos executam
+     * o ESC d na hora e descartam o fim da imagem que ainda estava na fila de impressão.
+     * As linhas em branco entram na mesma fila, depois do documento.
+     */
+    private fun feed(out: ByteArrayOutputStream, lines: Int, paperDots: Int) {
+        val h = lines.coerceIn(0, 40) * 24
+        if (h <= 0) return
+        writeRaster(out, ByteArray(paperDots / 8 * h), h, paperDots)
     }
 
     private fun writeRaster(out: ByteArrayOutputStream, bits: ByteArray, height: Int, paperDots: Int) {

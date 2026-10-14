@@ -11,6 +11,20 @@ class EscPos {
   static List<int> feed(int lines) =>
       [0x1B, 0x64, lines < 0 ? 0 : (lines > 255 ? 255 : lines)]; // ESC d n
 
+  /// Avanço de papel com linhas em branco (imagem) em vez de ESC d: alguns modelos executam
+  /// o ESC d na hora e descartam o fim da imagem que ainda estava na fila de impressão.
+  static List<int> blankFeed(int lines, int bytesPerRow) {
+    final h = (lines.clamp(0, 40)) * 24;
+    if (h == 0) return const [];
+    final out = <int>[];
+    for (var y = 0; y < h; y += 96) {
+      final b = (h - y) < 96 ? (h - y) : 96;
+      out.addAll([0x1D, 0x76, 0x30, 0x00, bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF, b & 0xFF, (b >> 8) & 0xFF]);
+      out.addAll(List<int>.filled(bytesPerRow * b, 0));
+    }
+    return out;
+  }
+
   /// Imagem em faixas de [band] linhas, para não estourar o buffer da impressora.
   static List<int> raster(MonoBitmap bmp, {int band = 96}) {
     final out = <int>[];
@@ -36,7 +50,7 @@ class EscPos {
     for (var c = 0; c < copies; c++) {
       for (final p in pages) {
         out.addAll(raster(p));
-        out.addAll(feed(feedLines));
+        out.addAll(blankFeed(feedLines, p.bytesPerRow));
       }
     }
     return Uint8List.fromList(out);

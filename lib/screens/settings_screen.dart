@@ -205,6 +205,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.add),
                 ),
               ]),
+              const Text(
+                'O avanço é feito com linhas em branco, depois do documento. '
+                'Se as últimas linhas não saírem, aumente o avanço.',
+                style: TextStyle(fontSize: 12, color: LeoColors.muted, height: 1.4),
+              ),
             ]),
           ),
           const SizedBox(height: 18),
