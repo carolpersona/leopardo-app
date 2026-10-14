@@ -2,6 +2,9 @@
  * Planilha Leopardo — recebe os cadastros de garantia e os pedidos da loja
  * enviados pelo app Leopardo.
  *
+ * Também é o "painel" do app: as abas Avisos, Tutoriais e Indicação são
+ * lidas pelo app sempre que ele abre (edite e o app atualiza sozinho).
+ *
  * Como instalar (uma vez):
  *  1. Crie uma planilha no Google Sheets (ex.: "App Leopardo - Cadastros").
  *  2. Menu Extensões > Apps Script. Apague o conteúdo e cole este arquivo inteiro. Salve.
@@ -10,6 +13,11 @@
  *     - Quem pode acessar: Qualquer pessoa
  *  4. Autorize o acesso quando o Google pedir.
  *  5. Copie o "URL do app da Web" (termina em /exec) e envie para colocar no app.
+ *  6. Rode a função "criarAbas" uma vez (menu Executar) para criar as abas de
+ *     Avisos, Tutoriais e Indicação com exemplos.
+ *
+ * Ao alterar este código depois: Implantar > Gerenciar implantações > editar >
+ * Versão: "Nova versão" > Implantar (o URL continua o mesmo).
  */
 
 // Deve ser igual ao sheetsToken do app (lib/services/sheets.dart).
@@ -32,13 +40,24 @@ const ABAS = {
     nome: 'Pedidos da Loja',
     colunas: [
       'Recebido em', 'Produto', 'Modelo', 'Tamanho', 'Quantidade', 'Unidade',
-      'Total de bobinas', 'Nome', 'Telefone', 'Cidade/UF', 'Mensagem', 'App/celular',
+      'Total de bobinas', 'Nome', 'Telefone', 'Cidade/UF', 'Código de indicação', 'Mensagem', 'App/celular',
     ],
+  },
+  indicacao: {
+    nome: 'Indicações',
+    colunas: ['Recebido em', 'Código', 'Nome', 'Telefone', 'Cidade/UF', 'App/celular'],
   },
 };
 
 // Colunas gravadas como texto (preserva zeros à esquerda).
 const TEXTO = ['CPF/CNPJ', 'Telefone', 'Nº de série', 'Nº da nota fiscal', 'ID do cadastro'];
+
+// Abas de conteúdo lidas pelo app
+const CONTEUDO = {
+  Avisos: ['Ativo', 'Título', 'Texto', 'Imagem', 'Botão', 'Ação', 'Início', 'Fim'],
+  Tutoriais: ['Ativo', 'Título', 'Descrição', 'Link do vídeo'],
+  'Indicação': ['Campo', 'Valor'],
+};
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -104,7 +123,63 @@ function resposta(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Teste rápido: Executar > doGet (ou abrir o URL /exec no navegador).
-function doGet() {
-  return resposta({ ok: true, app: 'Planilha Leopardo' });
+/** Conteúdo para o app: GET .../exec?action=conteudo */
+function doGet(e) {
+  if (!e || !e.parameter || e.parameter.action !== 'conteudo') {
+    return resposta({ ok: true, app: 'Planilha Leopardo' });
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const indicacao = {};
+  lerAba(ss, 'Indicação').forEach(function (r) {
+    if (r['Campo']) indicacao[r['Campo']] = r['Valor'];
+  });
+  return resposta({
+    ok: true,
+    avisos: lerAba(ss, 'Avisos'),
+    tutoriais: lerAba(ss, 'Tutoriais'),
+    indicacao: indicacao,
+  });
+}
+
+function lerAba(ss, nome) {
+  const sh = ss.getSheetByName(nome);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const valores = sh.getDataRange().getValues();
+  const cab = valores.shift().map(String);
+  return valores.map(function (linha) {
+    const o = {};
+    cab.forEach(function (c, i) {
+      const v = linha[i];
+      o[c] = v instanceof Date ? Utilities.formatDate(v, 'America/Sao_Paulo', 'yyyy-MM-dd') : String(v);
+    });
+    return o;
+  });
+}
+
+/** Rode uma vez para criar as abas de conteúdo com exemplos. */
+function criarAbas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const exemplos = {
+    Avisos: [
+      ['Sim', 'Bobinas HD 72 grs', 'Impressão mais escura e durável. Peça pelo WhatsApp.', '', 'Comprar bobinas', 'loja', '', ''],
+      ['Não', 'Exemplo com link', 'Ação pode ser: loja, tutoriais, garantia, indique, whatsapp:mensagem ou um link https://', '', 'Saiba mais', 'https://www.google.com', '', ''],
+    ],
+    Tutoriais: [
+      ['Não', 'Primeira conexão', 'Como conectar sua Leopardo ao celular', 'https://www.youtube.com/watch?v=XXXXXXXXXXX'],
+    ],
+    'Indicação': [
+      ['Título', 'Indique a Leopardo'],
+      ['Regras', 'Compartilhe seu código. Quando alguém comprar com ele, vocês dois ganham benefícios. Consulte as condições.'],
+    ],
+  };
+  Object.keys(CONTEUDO).forEach(function (nome) {
+    let sh = ss.getSheetByName(nome);
+    if (!sh) sh = ss.insertSheet(nome);
+    if (sh.getLastRow() === 0) {
+      sh.appendRow(CONTEUDO[nome]);
+      sh.setFrozenRows(1);
+      sh.getRange(1, 1, 1, CONTEUDO[nome].length).setFontWeight('bold').setBackground('#f2f2f2');
+      exemplos[nome].forEach(function (r) { sh.appendRow(r); });
+    }
+  });
 }

@@ -135,6 +135,7 @@ class WarrantyStore extends ChangeNotifier {
         ..clear()
         ..addAll((jsonDecode(raw) as List).map((e) => Warranty.fromJson(Map<String, dynamic>.from(e as Map))));
       notifyListeners();
+      _syncReminders();
     } catch (_) {}
   }
 
@@ -142,6 +143,32 @@ class WarrantyStore extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, jsonEncode(items.map((w) => w.toJson()).toList()));
     notifyListeners();
+    await _syncReminders();
+  }
+
+  /// Garantias que vencem nos próximos 30 dias (ou venceram há até 60 dias).
+  List<Warranty> get attention => items.where((w) => w.diasRestantes <= 30 && w.diasRestantes >= -60).toList();
+
+  /// Agenda notificações 30 e 7 dias antes do fim de cada garantia.
+  Future<void> _syncReminders() async {
+    final list = <Map<String, dynamic>>[];
+    var n = 0;
+    for (final w in items) {
+      for (final days in const [30, 7]) {
+        final v = w.validoAte;
+        final at = DateTime(v.year, v.month, v.day - days, 10);
+        list.add({
+          'id': 7000 + n++,
+          'at': at.millisecondsSinceEpoch,
+          'title': 'Garantia Leopardo',
+          'text': 'A garantia da sua ${w.modelo} (série ${w.serie}) vence em $days dias, '
+              'em ${Warranty.fmt(v)}. Fale com a Leopardo para uma revisão ou para conhecer as novidades.',
+        });
+      }
+    }
+    try {
+      await _ch.invokeMethod('setReminders', {'list': list});
+    } catch (_) {}
   }
 
   /// Guarda uma cópia da foto da nota dentro do app (o arquivo original pode sumir).

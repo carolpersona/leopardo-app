@@ -184,6 +184,30 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "setReminders" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val list = (call.argument<List<Map<String, Any?>>>("list") ?: emptyList())
+                        try {
+                            Reminders.ensureChannel(this)
+                            Reminders.set(this, list)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    // Abre a janela de compartilhar do Android (indicação)
+                    "shareText" -> {
+                        try {
+                            val i = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, call.argument<String>("text") ?: "")
+                            }
+                            startActivity(Intent.createChooser(i, "Compartilhar").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     "takePrintRequest" -> {
                         result.success(pendingRequest)
                         pendingRequest = null

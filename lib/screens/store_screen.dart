@@ -65,6 +65,13 @@ class _StoreScreenState extends State<StoreScreen> {
   final Map<int, int> _model = {};
   final Map<int, int> _size = {};
   final Map<int, int> _qty = {};
+  final _ref = TextEditingController();
+
+  @override
+  void dispose() {
+    _ref.dispose();
+    super.dispose();
+  }
 
   String _plural(String unit, int n) {
     if (n == 1) return '1 $unit';
@@ -88,6 +95,8 @@ class _StoreScreenState extends State<StoreScreen> {
       msg = 'Olá! Quero comprar ${_plural('unidade', q)} da impressora ${m.label}. '
           'Pode me passar valores e condições?';
     }
+    final ref = _ref.text.trim().toUpperCase();
+    if (ref.isNotEmpty) msg = '$msg\nCódigo de indicação: $ref';
     final ok = await LeopardoContact.whatsapp(msg);
     if (!ok && mounted) showMsg(context, 'Não foi possível abrir o WhatsApp.');
 
@@ -103,6 +112,7 @@ class _StoreScreenState extends State<StoreScreen> {
       'Nome': cliente?.nome ?? '',
       'Telefone': cliente?.telefone ?? '',
       'Cidade/UF': cliente?.cidade ?? '',
+      'Código de indicação': ref,
       'Mensagem': msg,
     });
   }
@@ -233,7 +243,18 @@ class _StoreScreenState extends State<StoreScreen> {
             'Escolha o produto, o modelo e a quantidade. O pedido abre no WhatsApp da Leopardo com a mensagem pronta.',
             style: TextStyle(fontSize: 14, color: LeoColors.text2, height: 1.45),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          LeoCard(
+            child: FieldLabel(
+              'Tem um código de indicação? (opcional)',
+              TextField(
+                controller: _ref,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(hintText: 'Ex.: LEO-7K3PQ'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           for (var i = 0; i < _products.length; i++) ...[
             _card(i),
             const SizedBox(height: 12),

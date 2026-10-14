@@ -13,6 +13,10 @@ import 'diagnostic_screen.dart';
 import 'history_screen.dart';
 import 'store_screen.dart';
 import 'warranty_screen.dart';
+import 'referral_screen.dart';
+import 'tutorials_screen.dart';
+import '../services/content.dart';
+import '../services/warranty.dart';
 import '../services/leopardo_contact.dart';
 import 'file_print_screen.dart';
 import 'pix_screen.dart';
@@ -66,11 +70,19 @@ class HomeScreen extends StatelessWidget {
           const Divider(height: 1, color: LeoColors.line),
           Expanded(
             child: AnimatedBuilder(
-              animation: Listenable.merge([ps, s, PrintHistory.instance]),
+              animation: Listenable.merge([ps, s, PrintHistory.instance, ContentService.instance, WarrantyStore.instance]),
               builder: (context, _) => ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
                   _printerCard(context, ps, s),
+                  for (final w in WarrantyStore.instance.attention) ...[
+                    const SizedBox(height: 12),
+                    _warrantyBanner(context, w),
+                  ],
+                  for (final a in ContentService.instance.avisos.take(3)) ...[
+                    const SizedBox(height: 12),
+                    _aviso(context, a),
+                  ],
                   const SizedBox(height: 22),
                   const Text('O que você quer imprimir?',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -144,6 +156,18 @@ class HomeScreen extends StatelessWidget {
                     Expanded(
                       child: _smallTile(context, Icons.health_and_safety_outlined, 'Diagnóstico',
                           'Testar a impressora', () => _push(context, const DiagnosticScreen())),
+                    ),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: _smallTile(context, Icons.play_circle_outline, 'Tutoriais',
+                          'Vídeos e guias rápidos', () => _push(context, const TutorialsScreen())),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _smallTile(context, Icons.card_giftcard, 'Indique e ganhe',
+                          'Compartilhe seu código', () => _push(context, const ReferralScreen())),
                     ),
                   ]),
                   const SizedBox(height: 10),
@@ -287,6 +311,101 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _runAction(BuildContext context, String acao) {
+    final a = acao.trim();
+    final low = a.toLowerCase();
+    if (low == 'loja') return _push(context, const StoreScreen());
+    if (low == 'tutoriais') return _push(context, const TutorialsScreen());
+    if (low == 'garantia') return _push(context, const WarrantyScreen());
+    if (low == 'indique' || low == 'indicacao' || low == 'indicação') return _push(context, const ReferralScreen());
+    if (low.startsWith('whatsapp')) {
+      final msg = a.contains(':') ? a.substring(a.indexOf(':') + 1).trim() : '';
+      LeopardoContact.whatsapp(msg.isEmpty ? 'Olá! Vi um aviso no app Leopardo.' : msg);
+      return;
+    }
+    if (low.startsWith('http')) LeopardoContact.openUrl(a);
+  }
+
+  Widget _aviso(BuildContext context, Aviso a) {
+    final hasAction = a.acao.trim().isNotEmpty;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: hasAction ? () => _runAction(context, a.acao) : null,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (a.imagem.startsWith('http'))
+            AspectRatio(
+              aspectRatio: 2,
+              child: Image.network(a.imagem, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(color: LeoColors.segment)),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (a.titulo.isNotEmpty)
+                Text(a.titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              if (a.texto.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(a.texto, style: const TextStyle(fontSize: 14, color: LeoColors.text2, height: 1.4)),
+              ],
+              if (hasAction && a.botao.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: LeoColors.red,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _runAction(context, a.acao),
+                  child: Text(a.botao, style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _warrantyBanner(BuildContext context, Warranty w) {
+    final vencida = !w.valida;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: vencida ? const Color(0xFFFFF1F1) : const Color(0xFFFFF7E0),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(vencida ? Icons.gpp_bad_outlined : Icons.schedule, color: vencida ? LeoColors.red : const Color(0xFF9A6B00)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              vencida
+                  ? 'A garantia da sua ${w.modelo} venceu em ${Warranty.fmt(w.validoAte)}'
+                  : 'A garantia da sua ${w.modelo} vence em ${w.diasRestantes} dias (${Warranty.fmt(w.validoAte)})',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton(
+            onPressed: () => LeopardoContact.whatsapp(vencida
+                ? 'Olá! A garantia da minha ${w.modelo} (série ${w.serie}) venceu. Quero saber sobre revisão e novos modelos.'
+                : 'Olá! A garantia da minha ${w.modelo} (série ${w.serie}) vence em ${Warranty.fmt(w.validoAte)}. Quero agendar uma revisão.'),
+            child: Text(vencida ? 'Revisão ou novo modelo' : 'Agendar revisão'),
+          ),
+          TextButton(
+            onPressed: () => _push(context, const StoreScreen()),
+            child: const Text('Ver impressoras'),
+          ),
+        ]),
+      ]),
     );
   }
 

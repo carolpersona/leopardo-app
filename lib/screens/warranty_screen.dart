@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../services/printer_service.dart';
 import '../services/warranty.dart';
@@ -213,6 +214,10 @@ class _WarrantyFormScreenState extends State<WarrantyFormScreen> {
       return;
     }
     setState(() => _saving = true);
+    // Permissão para os lembretes de garantia (Android 13+)
+    try {
+      await Permission.notification.request();
+    } catch (_) {}
     final id = e?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
     final nota = await WarrantyStore.instance.keepPhoto(_nota, id);
     final w = Warranty(
