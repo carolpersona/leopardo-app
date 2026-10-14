@@ -58,6 +58,55 @@ class MainActivity : FlutterActivity() {
         return if (out.isEmpty()) null else out
     }
 
+    /**
+     * Abre a conversa com [phone] no WhatsApp (ou WhatsApp Business) já com o texto
+     * e a imagem anexada. Sem WhatsApp instalado, usa o link wa.me (só texto).
+     */
+    private fun shareWhatsApp(phone: String, text: String, imagePath: String?): Boolean {
+        var uri: Uri? = null
+        if (!imagePath.isNullOrEmpty()) {
+            try {
+                val src = java.io.File(imagePath)
+                val dir = java.io.File(cacheDir, "compartilhar").apply { mkdirs() }
+                val dst = java.io.File(dir, "anexo_${System.currentTimeMillis()}.${src.extension.ifEmpty { "jpg" }}")
+                src.copyTo(dst, overwrite = true)
+                uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.leopardo.files", dst)
+            } catch (e: Exception) {
+                uri = null
+            }
+        }
+        for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b")) {
+            try {
+                val i = Intent(Intent.ACTION_SEND).apply {
+                    setPackage(pkg)
+                    putExtra("jid", "$phone@s.whatsapp.net")
+                    putExtra(Intent.EXTRA_TEXT, text)
+                    if (uri != null) {
+                        type = "image/*"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    } else {
+                        type = "text/plain"
+                    }
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(i)
+                return true
+            } catch (e: Exception) {
+                // tenta o próximo
+            }
+        }
+        return try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$phone?text=" + Uri.encode(text)))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
@@ -87,6 +136,42 @@ class MainActivity : FlutterActivity() {
                                 main.post { result.error("BOLETO", e.message ?: "Erro ao ler o PDF", null) }
                             }
                         }
+                    }
+                    // Abre link externo (WhatsApp da Leopardo, loja etc.)
+                    "openUrl" -> {
+                        try {
+                            val url = call.argument<String>("url") ?: ""
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    // Envia texto (e foto, se houver) direto para o WhatsApp da Leopardo
+                    "shareWhatsApp" -> {
+                        val phone = call.argument<String>("phone") ?: ""
+                        val text = call.argument<String>("text") ?: ""
+                        val image = call.argument<String>("image")
+                        result.success(shareWhatsApp(phone, text, image))
+                    }
+                    // Pasta interna do app (histórico de impressões)
+                    "filesDir" -> result.success(filesDir.absolutePath)
+                    // Dados do aparelho para o relatório de diagnóstico
+                    "deviceInfo" -> {
+                        val versionName = try {
+                            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+                        } catch (e: Exception) {
+                            ""
+                        }
+                        result.success(
+                            mapOf(
+                                "manufacturer" to android.os.Build.MANUFACTURER,
+                                "model" to android.os.Build.MODEL,
+                                "android" to android.os.Build.VERSION.RELEASE,
+                                "sdk" to android.os.Build.VERSION.SDK_INT,
+                                "appVersion" to versionName
+                            )
+                        )
                     }
                     "takePrintRequest" -> {
                         result.success(pendingRequest)

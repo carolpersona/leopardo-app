@@ -2,16 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'screens/connect_screen.dart';
 import 'screens/file_print_screen.dart';
+import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/receipt_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/history.dart';
 import 'services/integration.dart';
 import 'services/printer_service.dart';
 import 'services/settings.dart';
+import 'services/warranty.dart';
 import 'theme.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -21,6 +25,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await AppSettings.instance.load();
+  await PrintHistory.instance.load();
+  await WarrantyStore.instance.load();
   runApp(const LeopardoApp());
 }
 
@@ -31,6 +37,13 @@ class LeopardoApp extends StatelessWidget {
         title: 'Leopardo',
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
+        locale: const Locale('pt', 'BR'),
+        supportedLocales: const [Locale('pt', 'BR')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         scaffoldMessengerKey: messengerKey,
         theme: buildTheme(),
         home: const Shell(),
@@ -107,7 +120,7 @@ class _ShellState extends State<Shell> {
 
   void _select(int i) {
     setState(() {
-      if (i == 2 && _tab != 2) _settingsVersion++; // recarrega os campos de Ajustes
+      if (i == 3 && _tab != 3) _settingsVersion++; // recarrega os campos de Ajustes
       _tab = i;
     });
     if (i == 1) {
@@ -124,8 +137,9 @@ class _ShellState extends State<Shell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          HomeScreen(onOpenSettings: () => _select(2)),
+          HomeScreen(onOpenSettings: () => _select(3), onOpenHistory: () => _select(2)),
           const ConnectScreen(asTab: true),
+          const HistoryScreen(),
           SettingsScreen(key: ValueKey(_settingsVersion)),
         ],
       ),
@@ -136,6 +150,7 @@ class _ShellState extends State<Shell> {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Início'),
           NavigationDestination(
               icon: Icon(Icons.print_outlined), selectedIcon: Icon(Icons.print), label: 'Impressoras'),
+          NavigationDestination(icon: Icon(Icons.history), selectedIcon: Icon(Icons.history), label: 'Histórico'),
           NavigationDestination(
               icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Ajustes'),
         ],

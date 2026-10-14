@@ -232,6 +232,7 @@ Future<void> printWithFeedback(
   required String subtitle,
   int copies = 1,
   required Future<void> Function() openConnect,
+  bool saveToHistory = true,
 }) async {
   final ps = PrinterService.instance;
   if (!ps.isConnected) {
@@ -241,7 +242,7 @@ Future<void> printWithFeedback(
   }
   try {
     await ps.printPages(pages, copies: copies);
-    PrintHistory.instance.add(PrintJob(title, subtitle, pages));
+    if (saveToHistory) PrintHistory.instance.add(title, subtitle, pages);
     if (context.mounted) showMsg(context, 'Enviado para ${ps.deviceName}.');
   } catch (e) {
     if (context.mounted) showMsg(context, 'Não foi possível imprimir: $e');

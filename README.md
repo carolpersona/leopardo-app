@@ -12,6 +12,8 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **Controle de fluxo**: comando de status (DLE EOT) ao final, atraso entre pacotes (0 a 1000 ms) e espera antes de desconectar (0 a 30 s).
 - **Boleto em 80 mm**: lê um boleto em PDF A4 (texto ou imagem) e refaz o layout deitado na bobina, com código de barras no tamanho oficial e QR PIX quando houver.
 - **Boleto pela tela "Imprimir" do Android**: ao imprimir um boleto em PDF de qualquer app escolhendo a Leopardo, ele sai no mesmo layout 80 mm (pode ser desligado na aba Impressoras).
+- **Leopardo no app**: botão de WhatsApp (11) 96304-4242, Loja Leopardo (bobinas, impressoras e acessórios pelo WhatsApp), Diagnóstico (página de teste + relatório ao suporte) e Cadastro e garantia (12 meses, com foto da nota).
+- **Histórico**: as impressões ficam salvas no aparelho para reimprimir; dá para excluir uma ou limpar tudo.
 - **Integração com sistemas** (ERPs, PDVs, sites e apps): veja a seção abaixo.
 - Página de teste, reimpressão das últimas impressões, papel de 58 mm ou 80 mm e reconexão automática à última impressora.
 

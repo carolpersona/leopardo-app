@@ -71,6 +71,16 @@
                 <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
+        <!-- Anexos enviados ao WhatsApp da Leopardo (foto do teste, nota fiscal) -->
+        <provider
+            android:name=".LeopardoFileProvider"
+            android:authorities="${applicationId}.leopardo.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/leopardo_file_paths" />
+        </provider>
         <!-- Faz as impressoras Leopardo aparecerem na tela "Imprimir" do Android -->
         <service
             android:name=".LeopardoPrintService"

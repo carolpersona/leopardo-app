@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
+import 'history.dart';
 import 'printer_service.dart';
 import 'raster.dart';
 import 'receipt_renderer.dart';
@@ -80,5 +81,7 @@ class Integration {
     );
     final mono = await toMono(img, s.paperDots);
     await ps.printPages([mono]);
+    final first = (r.text ?? '').trim().split('\n').first;
+    PrintHistory.instance.add(first.isEmpty ? 'Pedido recebido' : first, 'Outro app', [mono]);
   }
 }
