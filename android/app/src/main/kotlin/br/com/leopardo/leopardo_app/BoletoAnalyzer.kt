@@ -36,18 +36,43 @@ import java.util.concurrent.TimeUnit
 object BoletoAnalyzer {
 
     private class Token(
-        val page: Int, val x: Float, val right: Float, val base: Float, val size: Float, val text: String
+        val page: Int, val x: Float, val right: Float, val base: Float, val size: Float, val text: String,
+        val angle: Int = 0
     )
 
-    private class Collector : PDFTextStripper() {
+    /** Ângulo do texto em graus (marcas d'água inclinadas ficam fora). */
+    private fun angleOf(tp: TextPosition): Int = try {
+        val m = tp.textMatrix
+        Math.round(Math.toDegrees(Math.atan2(m.shearY.toDouble(), m.scaleX.toDouble()))).toInt()
+    } catch (e: Exception) {
+        0
+    }
+
+    /**
+     * @param sort true = ordem por posição (boleto); false = ordem do arquivo (DANFE: alguns
+     *             emissores sobrepõem caracteres e a ordenação por posição embaralha o texto).
+     */
+    private class Collector(sort: Boolean = true) : PDFTextStripper() {
         var page = 0
         val tokens = ArrayList<Token>()
 
         init {
-            setSortByPosition(true)
+            setSortByPosition(sort)
+        }
+
+        override fun processTextPosition(text: TextPosition) {
+            // marca d'água grande ("SEM VALOR FISCAL", "CANCELADA")
+            val size = try {
+                Math.abs(text.textMatrix.scalingFactorY)
+            } catch (e: Exception) {
+                0f
+            }
+            if (size > 30f) return
+            super.processTextPosition(text)
         }
 
         override fun writeString(text: String?, textPositions: MutableList<TextPosition>?) {
+            super.writeString(text, textPositions)
             val ps = textPositions ?: return
             if (ps.isEmpty()) return
             val t = text?.trim() ?: return
@@ -57,19 +82,36 @@ object BoletoAnalyzer {
             var size = first.fontSizeInPt
             if (size < 3f) size = first.heightDir * 1.4f
             if (size < 3f) size = 7f
-            tokens.add(Token(page, first.xDirAdj, last.xDirAdj + last.widthDirAdj, first.yDirAdj, size, t))
+            tokens.add(Token(page, first.xDirAdj, last.xDirAdj + last.widthDirAdj, first.yDirAdj, size, t, angleOf(first)))
+        }
+
+        /** Mantém só o texto na orientação predominante de cada página. */
+        fun upright(): List<Token> {
+            val out = ArrayList<Token>()
+            for ((_, list) in tokens.groupBy { it.page }) {
+                val dom = list.groupingBy { it.angle }.eachCount().maxByOrNull { it.value }?.key ?: 0
+                list.filterTo(out) { Math.abs(it.angle - dom) <= 2 }
+            }
+            return out
         }
     }
 
-    fun analyze(context: Context, path: String): Map<String, Any> {
+    /**
+     * @param danfe também devolve "words" (palavras na ordem do arquivo), "rawText" por página
+     *              e lê códigos CODE-128 (chave de acesso da NF-e).
+     */
+    fun analyze(context: Context, path: String, danfe: Boolean = false): Map<String, Any> {
         val file = File(path)
         val pages = ArrayList<Map<String, Any>>()
         val tokens = ArrayList<Token>()
+        val streamTokens = ArrayList<Token>()
+        val rawText = ArrayList<String>()
         var textError: String? = null
         try {
             PDFBoxResourceLoader.init(context.applicationContext)
             PDDocument.load(file).use { doc ->
                 val collector = Collector()
+                val stream = if (danfe) Collector(sort = false) else null
                 val count = minOf(doc.numberOfPages, 30)
                 for (i in 0 until count) {
                     val box = doc.getPage(i).mediaBox
@@ -78,8 +120,15 @@ object BoletoAnalyzer {
                     collector.setStartPage(i + 1)
                     collector.setEndPage(i + 1)
                     collector.getText(doc)
+                    if (stream != null) {
+                        stream.page = i
+                        stream.setStartPage(i + 1)
+                        stream.setEndPage(i + 1)
+                        rawText.add(stream.getText(doc))
+                    }
                 }
-                tokens.addAll(collector.tokens)
+                tokens.addAll(collector.upright())
+                if (stream != null) streamTokens.addAll(stream.upright())
             }
         } catch (e: Exception) {
             textError = e.message ?: "erro ao ler o texto"
@@ -96,7 +145,7 @@ object BoletoAnalyzer {
         val barcodes = ArrayList<Map<String, Any>>()
         val ocrTokens = ArrayList<Token>()
         try {
-            scanPages(file, pagesWithText, barcodes, ocrTokens)
+            scanPages(file, pagesWithText, barcodes, ocrTokens, danfe)
         } catch (e: Exception) {
         }
         val out = HashMap<String, Any>()
@@ -112,6 +161,18 @@ object BoletoAnalyzer {
         }
         out["pages"] = pages
         out["ocr"] = ocrTokens.isNotEmpty()
+        if (danfe) {
+            out["words"] = (streamTokens.map { t ->
+                val k = f(t.page)
+                Token(t.page, t.x * k, t.right * k, t.base * k, t.size * k, t.text)
+            } + scaledOcr).map {
+                mapOf(
+                    "page" to it.page, "x" to it.x.toDouble(), "right" to it.right.toDouble(),
+                    "base" to it.base.toDouble(), "size" to it.size.toDouble(), "text" to it.text
+                )
+            }
+            out["rawText"] = rawText
+        }
         if (textError != null) out["textError"] = textError
         return out
     }
@@ -191,14 +252,17 @@ object BoletoAnalyzer {
         file: File,
         pagesWithText: Set<Int>,
         barcodes: MutableList<Map<String, Any>>,
-        ocrTokens: MutableList<Token>
+        ocrTokens: MutableList<Token>,
+        danfe: Boolean = false
     ) {
         val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         fd.use {
             val renderer = PdfRenderer(fd)
             try {
                 val hints = HashMap<DecodeHintType, Any>()
-                hints[DecodeHintType.POSSIBLE_FORMATS] = listOf(BarcodeFormat.ITF, BarcodeFormat.QR_CODE)
+                hints[DecodeHintType.POSSIBLE_FORMATS] =
+                    if (danfe) listOf(BarcodeFormat.ITF, BarcodeFormat.QR_CODE, BarcodeFormat.CODE_128)
+                    else listOf(BarcodeFormat.ITF, BarcodeFormat.QR_CODE)
                 hints[DecodeHintType.TRY_HARDER] = true
                 hints[DecodeHintType.ALLOWED_LENGTHS] = intArrayOf(44)
                 for (i in 0 until minOf(renderer.pageCount, 30)) {

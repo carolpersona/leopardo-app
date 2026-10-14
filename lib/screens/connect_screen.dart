@@ -161,6 +161,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     settings.autoBoleto = v;
                     settings.save();
                   }),
+                  SwitchRow('DANFE em PDF: imprimir como DANFE Simplificado', settings.autoDanfe, (v) {
+                    settings.autoDanfe = v;
+                    settings.save();
+                  }),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,

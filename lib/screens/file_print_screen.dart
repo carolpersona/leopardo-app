@@ -13,6 +13,7 @@ import '../services/settings.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'boleto_screen.dart';
+import 'danfe_screen.dart';
 import 'connect_screen.dart';
 
 /// Imprimir PDF, imagem, Word (.docx) ou texto (.txt) — da galeria, dos arquivos ou do WhatsApp.
@@ -224,6 +225,24 @@ class _FilePrintScreenState extends State<FilePrintScreen> {
     );
   }
 
+  Widget _shortcut(IconData icon, String label, Widget Function() page) => Material(
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => page())),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Icon(icon, color: LeoColors.red),
+              const SizedBox(width: 12),
+              Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
+              const Icon(Icons.chevron_right),
+            ]),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final fileName = _path == null ? 'Nenhum arquivo' : _path!.split(Platform.pathSeparator).last;
@@ -268,28 +287,11 @@ class _FilePrintScreenState extends State<FilePrintScreen> {
           ),
           const SizedBox(height: 16),
           if (_isPdf && _path != null) ...[
-            Material(
-              color: const Color(0xFFFFF1F1),
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => BoletoScreen(path: _path)),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Row(children: [
-                    Icon(Icons.request_page_outlined, color: LeoColors.red),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text('É um boleto? Refazer o layout para 80 mm',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                    ),
-                    Icon(Icons.chevron_right),
-                  ]),
-                ),
-              ),
-            ),
+            _shortcut(Icons.request_page_outlined, 'É um boleto? Refazer o layout para 80 mm',
+                () => BoletoScreen(path: _path)),
+            const SizedBox(height: 10),
+            _shortcut(Icons.local_shipping_outlined, 'É uma nota fiscal (DANFE)? Fazer o DANFE Simplificado',
+                () => DanfeScreen(path: _path)),
             const SizedBox(height: 16),
           ],
           if ((_isPdf || _isText) && _error == null) ...[

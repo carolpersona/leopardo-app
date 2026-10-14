@@ -137,6 +137,37 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    // DANFE A4 em PDF -> dados para o DANFE Simplificado
+                    "danfeRead" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        worker.execute {
+                            try {
+                                val r = DanfeModel.read(BoletoAnalyzer.analyze(this, path, danfe = true))
+                                main.post { result.success(r) }
+                            } catch (e: Exception) {
+                                main.post { result.error("DANFE", e.message ?: "Erro ao ler o PDF", null) }
+                            }
+                        }
+                    }
+                    // Desenha o DANFE Simplificado e devolve a imagem (PNG)
+                    "danfeRender" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val data = call.argument<Map<String, Any?>>("data") ?: emptyMap()
+                        val dots = call.argument<Int>("dots") ?: 576
+                        val etiqueta = call.argument<Boolean>("etiqueta") ?: false
+                        val valorTotal = call.argument<Boolean>("valorTotal") ?: true
+                        worker.execute {
+                            try {
+                                val bmp = DanfeDraw.render(data, dots, etiqueta, valorTotal)
+                                val bos = java.io.ByteArrayOutputStream()
+                                bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, bos)
+                                bmp.recycle()
+                                main.post { result.success(bos.toByteArray()) }
+                            } catch (e: Exception) {
+                                main.post { result.error("DANFE", e.message ?: "Erro ao desenhar", null) }
+                            }
+                        }
+                    }
                     // Abre link externo (WhatsApp da Leopardo, loja etc.)
                     "openUrl" -> {
                         try {

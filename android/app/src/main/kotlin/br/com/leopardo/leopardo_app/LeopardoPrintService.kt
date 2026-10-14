@@ -59,20 +59,42 @@ class LeopardoPrintService : PrintService() {
         true
     }
 
+    /** DANFE A4 refeito como DANFE Simplificado (Ajustes do app; ligado por padrão). */
+    private fun autoDanfe(): Boolean = try {
+        prefs().getBoolean("flutter.autoDanfe", true)
+    } catch (e: Exception) {
+        true
+    }
+
+    private fun danfeEtiqueta(): Boolean = try {
+        prefs().getBoolean("flutter.danfeEtiqueta", false)
+    } catch (e: Exception) {
+        false
+    }
+
     /**
      * Se o PDF for um boleto, devolve os bytes no layout "Boleto 80 mm" (um por boleto);
-     * senão, null e o PDF é impresso como está.
+     * se for um DANFE, no layout "DANFE Simplificado"; senão, null e o PDF é impresso como está.
      */
-    private fun boletoBytes(pdf: java.io.File, dots: Int, options: ThermalRaster.JobOptions): ByteArray? {
-        if (!autoBoleto()) return null
+    private fun specialBytes(pdf: java.io.File, dots: Int, options: ThermalRaster.JobOptions): ByteArray? {
+        val boleto = autoBoleto()
+        val danfe = autoDanfe()
+        if (!boleto && !danfe) return null
         return try {
-            val boletos = BoletoModel.read(BoletoAnalyzer.analyze(this, pdf.absolutePath))
-            if (boletos.isEmpty()) return null
-            val images = boletos.map { BoletoDraw.render(it, dots) }
+            val analysis = BoletoAnalyzer.analyze(this, pdf.absolutePath, danfe = danfe)
+            val images = if (boleto) BoletoModel.read(analysis).map { BoletoDraw.render(it, dots) } else emptyList()
+            val all = images.ifEmpty {
+                if (!danfe) emptyList()
+                else {
+                    val etiqueta = danfeEtiqueta()
+                    DanfeModel.read(analysis).map { DanfeDraw.render(it, dots, etiqueta) }
+                }
+            }
+            if (all.isEmpty()) return null
             try {
-                ThermalRaster.bitmapsToEscPos(images, dots, options)
+                ThermalRaster.bitmapsToEscPos(all, dots, options)
             } finally {
-                images.forEach { it.recycle() }
+                all.forEach { it.recycle() }
             }
         } catch (e: Exception) {
             null
@@ -246,7 +268,7 @@ class LeopardoPrintService : PrintService() {
         Thread {
             var error: String? = null
             try {
-                val bytes = boletoBytes(tmp, dots, options)
+                val bytes = specialBytes(tmp, dots, options)
                     ?: ThermalRaster.pdfToEscPos(tmp, dots, options, isCancelled)
                 if (address.startsWith("classic:") || address.startsWith("usb:")) {
                     NativePrinters.sendOnce(this, address, bytes, flow)

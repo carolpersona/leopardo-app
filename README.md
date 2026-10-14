@@ -12,6 +12,7 @@ App das Impressoras Leopardo para Android (e iOS) feito em Flutter. Imprime em i
 - **Controle de fluxo**: comando de status (DLE EOT) ao final, atraso entre pacotes (0 a 1000 ms) e espera antes de desconectar (0 a 30 s).
 - **Boleto em 80 mm**: lê um boleto em PDF A4 (texto ou imagem) e refaz o layout deitado na bobina, com código de barras no tamanho oficial e QR PIX quando houver.
 - **Boleto pela tela "Imprimir" do Android**: ao imprimir um boleto em PDF de qualquer app escolhendo a Leopardo, ele sai no mesmo layout 80 mm (pode ser desligado na aba Impressoras).
+- **DANFE Simplificado**: lê o DANFE A4 (PDF da NF-e) e monta o DANFE Simplificado na bobina (58 ou 80 mm), completo (itens, totais, transporte, informações complementares) ou no modelo Etiqueta, com chave de acesso em CODE-128C. Segue o Ajuste SINIEF 07/05 e a NT 2020.004 v1.10 (títulos em negrito/maiúsculas, fonte ≥ 6 pt). Também funciona pela tela "Imprimir" do Android.
 - **Leopardo no app**: botão de WhatsApp (11) 96304-4242, Loja Leopardo (bobinas, impressoras e acessórios pelo WhatsApp), Diagnóstico (página de teste + relatório ao suporte) e Cadastro e garantia (12 meses, com foto da nota).
 - **Histórico**: as impressões ficam salvas no aparelho para reimprimir; dá para excluir uma ou limpar tudo.
 - **Reorganizar documentos para 80 mm**: PDF com texto, Word (.docx) e .txt são remontados na largura da bobina com letra legível (Pequena/Média/Grande).

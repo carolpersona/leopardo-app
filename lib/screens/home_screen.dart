@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'connect_screen.dart';
 import 'boleto_screen.dart';
+import 'danfe_screen.dart';
 import 'diagnostic_screen.dart';
 import 'history_screen.dart';
 import 'store_screen.dart';
@@ -91,6 +92,8 @@ class HomeScreen extends StatelessWidget {
                       'Da galeria, arquivos ou WhatsApp', () => _push(context, const FilePrintScreen())),
                   _option(context, Icons.request_page_outlined, 'Boleto em 80 mm',
                       'PDF A4 refeito para a bobina', () => _push(context, const BoletoScreen())),
+                  _option(context, Icons.local_shipping_outlined, 'DANFE Simplificado',
+                      'Nota fiscal (DANFE A4) refeita para a bobina', () => _push(context, const DanfeScreen())),
                   _option(context, Icons.receipt_long_outlined, 'Texto e recibo',
                       'Recibo com itens, total e sua logo', () => _push(context, const ReceiptScreen())),
                   _option(context, Icons.qr_code_2, 'Cobrança PIX', 'Gera e imprime o QR Code do valor',

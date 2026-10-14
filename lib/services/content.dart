@@ -190,6 +190,12 @@ const guides = <Guide>[
     'Confira os dados em "Conferir e editar dados".',
     'Toque em Imprimir boleto. O código de barras sai no tamanho oficial.',
   ]),
+  Guide('DANFE Simplificado', 'Nota fiscal A4 refeita para a bobina', [
+    'Na tela Início, toque em "DANFE Simplificado" e escolha o PDF da nota (ou compartilhe o PDF com o app Leopardo).',
+    'Escolha "Completo" (com produtos e totais) ou "Etiqueta" (para colar na embalagem).',
+    'Confira os dados e toque em Imprimir DANFE.',
+    'Pela tela "Imprimir" do Android, o DANFE em PDF já sai simplificado (dá para desligar em Impressoras).',
+  ]),
   Guide('Problemas comuns', 'O que fazer quando algo não sai certo', [
     'Não encontra a impressora: ligue o Bluetooth e a localização e deixe a impressora a até 5 metros.',
     'Impressão clara: em Ajustes, mude o "Tom da impressão" para Escuro.',

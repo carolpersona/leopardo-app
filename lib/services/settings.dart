@@ -27,6 +27,8 @@ class AppSettings extends ChangeNotifier {
   // Comandos da impressora (lidos também pelo serviço de impressão do Android).
   int feedLines = 4;
   bool autoBoleto = true; // impressão pelo Android: refaz boletos no layout 80 mm
+  bool autoDanfe = true; // impressão pelo Android: DANFE A4 vira DANFE Simplificado
+  bool danfeEtiqueta = false; // DANFE Simplificado - Etiqueta (sem itens)
 
   // Controle de fluxo
   bool statusCheck = false; // envia DLE EOT 1 ao final e espera a resposta
@@ -69,6 +71,8 @@ class AppSettings extends ChangeNotifier {
     disconnectWait = _p.getInt('disconnectWait') ?? 1;
     feedLines = _p.getInt('feedLines') ?? 4;
     autoBoleto = _p.getBool('autoBoleto') ?? true;
+    autoDanfe = _p.getBool('autoDanfe') ?? true;
+    danfeEtiqueta = _p.getBool('danfeEtiqueta') ?? false;
     darkness = _p.getInt('darkness') ?? 1;
     lastPrinterId = _p.getString('lastPrinterId') ?? '';
     lastPrinterName = _p.getString('lastPrinterName') ?? '';
@@ -104,6 +108,8 @@ class AppSettings extends ChangeNotifier {
     await _p.setInt('disconnectWait', disconnectWait);
     await _p.setInt('feedLines', feedLines);
     await _p.setBool('autoBoleto', autoBoleto);
+    await _p.setBool('autoDanfe', autoDanfe);
+    await _p.setBool('danfeEtiqueta', danfeEtiqueta);
     await _p.setInt('darkness', darkness);
     await _p.setString('lastPrinterId', lastPrinterId);
     await _p.setString('lastPrinterName', lastPrinterName);
