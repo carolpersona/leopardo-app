@@ -18,7 +18,8 @@ class _Model {
   final String label;
   final List<_Size> sizes;
   final bool askQuantity;
-  const _Model(this.label, this.sizes, {this.askQuantity = true});
+  final String? photo; // foto do equipamento (assets/printers)
+  const _Model(this.label, this.sizes, {this.askQuantity = true, this.photo});
 }
 
 class _Product {
@@ -41,9 +42,9 @@ class StoreScreen extends StatefulWidget {
 class _StoreScreenState extends State<StoreScreen> {
   static const _products = [
     _Product(Icons.print_outlined, 'Impressoras Leopardo', 'Impressoras térmicas portáteis', 'Modelo', [
-      _Model('Leopardo PROMAX', [_Size('Leopardo PROMAX')]),
-      _Model('Leopardo XR', [_Size('Leopardo XR')]),
-      _Model('Leopardo MXR', [_Size('Leopardo MXR')]),
+      _Model('Leopardo PROMAX', [_Size('Leopardo PROMAX')], photo: 'assets/printers/promax.jpg'),
+      _Model('Leopardo XR', [_Size('Leopardo XR')], photo: 'assets/printers/xr.jpg'),
+      _Model('Leopardo MXR', [_Size('Leopardo MXR')], photo: 'assets/printers/mxr.jpg'),
       _Model('Quero ajuda para escolher', [_Size('Ajuda para escolher')], askQuantity: false),
     ], 'unidade'),
     _Product(Icons.receipt_long_outlined, 'Bobina Térmica 58 mm', 'Para impressoras de 58 mm', 'Modelo', [
@@ -122,6 +123,68 @@ class _StoreScreenState extends State<StoreScreen> {
         child: Text(t, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: LeoColors.text2)),
       );
 
+  /// Miniaturas das impressoras; o toque abre a foto em tela cheia com zoom.
+  Widget _photos(int i, _Product p, int selected) {
+    final withPhoto = [for (var j = 0; j < p.models.length; j++) if (p.models[j].photo != null) j];
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(children: [
+        for (final j in withPhoto)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: GestureDetector(
+                onTap: () => _openPhotos(i, p, withPhoto, withPhoto.indexOf(j)),
+                child: Column(children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: selected == j ? LeoColors.red : LeoColors.field, width: selected == j ? 2 : 1),
+                    ),
+                    child: Stack(children: [
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Image.asset(p.models[j].photo!, fit: BoxFit.contain, cacheWidth: 300),
+                        ),
+                      ),
+                      const Positioned(
+                        right: 4,
+                        bottom: 4,
+                        child: Icon(Icons.zoom_in, size: 18, color: LeoColors.muted),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(p.models[j].label.replaceFirst('Leopardo ', ''),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  void _openPhotos(int i, _Product p, List<int> idx, int start) {
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => _PhotoViewer(
+        titles: [for (final j in idx) p.models[j].label],
+        photos: [for (final j in idx) p.models[j].photo!],
+        initial: start,
+        onChoose: (k) => setState(() {
+          _model[i] = idx[k];
+          _size[i] = 0;
+        }),
+      ),
+    ));
+  }
+
   Widget _card(int i) {
     final p = _products[i];
     final mi = _model[i] ?? 0;
@@ -146,6 +209,7 @@ class _StoreScreenState extends State<StoreScreen> {
             ]),
           ),
         ]),
+        if (p.models.any((x) => x.photo != null)) _photos(i, p, mi),
         _label(p.modelTitle),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (var j = 0; j < p.models.length; j++)
@@ -266,6 +330,98 @@ class _StoreScreenState extends State<StoreScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Foto em tela cheia: arraste para trocar de modelo e use a pinça para ampliar.
+class _PhotoViewer extends StatefulWidget {
+  final List<String> titles;
+  final List<String> photos;
+  final int initial;
+  final ValueChanged<int> onChoose;
+  const _PhotoViewer({required this.titles, required this.photos, required this.initial, required this.onChoose});
+  @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  late final PageController _pc = PageController(initialPage: widget.initial);
+  late int _page = widget.initial;
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Text(widget.titles[_page]),
+        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+      ),
+      body: Column(children: [
+        Expanded(
+          child: PageView.builder(
+            controller: _pc,
+            itemCount: widget.photos.length,
+            onPageChanged: (k) => setState(() => _page = k),
+            itemBuilder: (_, k) => InteractiveViewer(
+              minScale: 1,
+              maxScale: 5,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Image.asset(widget.photos[k], fit: BoxFit.contain),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (widget.photos.length > 1)
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            for (var k = 0; k < widget.photos.length; k++)
+              Container(
+                margin: const EdgeInsets.all(4),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: k == _page ? LeoColors.red : LeoColors.field,
+                ),
+              ),
+          ]),
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text('Use dois dedos para ampliar', style: TextStyle(fontSize: 12, color: LeoColors.muted)),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: LeoColors.red,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () {
+                  widget.onChoose(_page);
+                  Navigator.pop(context);
+                },
+                child: Text('Escolher a ${widget.titles[_page]}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              ),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }
