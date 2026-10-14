@@ -24,6 +24,7 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * Lê um boleto em PDF:
@@ -40,6 +41,23 @@ object BoletoAnalyzer {
         val angle: Int = 0
     )
 
+    /**
+     * Tamanho da letra em pontos na página. Usa a matriz de renderização (inclui a escala da
+     * página); alguns emissores desenham com fonte enorme e reduzem tudo pela escala.
+     */
+    private fun sizeOf(tp: TextPosition): Float {
+        val r = try {
+            Math.abs(tp.textMatrix.scalingFactorY)
+        } catch (e: Exception) {
+            0f
+        }
+        if (r in 2f..60f) return r
+        var size = tp.fontSizeInPt
+        if (size < 3f || size > 60f) size = tp.heightDir * 1.4f
+        if (size < 3f) size = 7f
+        return size
+    }
+
     /** Ângulo do texto em graus (marcas d'água inclinadas ficam fora). */
     private fun angleOf(tp: TextPosition): Int = try {
         val m = tp.textMatrix
@@ -52,9 +70,10 @@ object BoletoAnalyzer {
      * @param sort true = ordem por posição (boleto); false = ordem do arquivo (DANFE: alguns
      *             emissores sobrepõem caracteres e a ordenação por posição embaralha o texto).
      */
-    private class Collector(sort: Boolean = true) : PDFTextStripper() {
+    private class Collector(private val sort: Boolean = true) : PDFTextStripper() {
         var page = 0
         val tokens = ArrayList<Token>()
+        private val chars = ArrayList<Pair<DanfeModel.Ch, Int>>()
 
         init {
             setSortByPosition(sort)
@@ -73,24 +92,47 @@ object BoletoAnalyzer {
 
         override fun writeString(text: String?, textPositions: MutableList<TextPosition>?) {
             super.writeString(text, textPositions)
+            if (!sort) {
+                // ordem do arquivo: as palavras são separadas depois, caractere a caractere
+                for (tp in textPositions ?: return) {
+                    val size = sizeOf(tp)
+                    chars.add(
+                        Pair(
+                            DanfeModel.Ch(page, tp.xDirAdj, tp.xDirAdj + tp.widthDirAdj, tp.yDirAdj, size, tp.unicode ?: ""),
+                            angleOf(tp)
+                        )
+                    )
+                }
+                chars.add(Pair(DanfeModel.Ch(page, 0f, 0f, 0f, 1f, " "), 0))
+                return
+            }
             val ps = textPositions ?: return
             if (ps.isEmpty()) return
             val t = text?.trim() ?: return
             if (t.isEmpty()) return
             val first = ps.first()
             val last = ps.last()
-            var size = first.fontSizeInPt
-            if (size < 3f) size = first.heightDir * 1.4f
-            if (size < 3f) size = 7f
+            val size = sizeOf(first)
             tokens.add(Token(page, first.xDirAdj, last.xDirAdj + last.widthDirAdj, first.yDirAdj, size, t, angleOf(first)))
         }
 
         /** Mantém só o texto na orientação predominante de cada página. */
         fun upright(): List<Token> {
+            if (!sort) {
+                val out = ArrayList<Token>()
+                for ((_, list) in chars.filter { it.first.text.isNotBlank() }.groupBy { it.first.page }) {
+                    val dom = list.groupingBy { it.second }.eachCount().maxByOrNull { it.value }?.key ?: 0
+                    val keep = chars.filter { it.first.page == list[0].first.page && (it.first.text.isBlank() || abs(it.second - dom) <= 2) }
+                    for (w in DanfeModel.splitWords(keep.map { it.first })) {
+                        out.add(Token(w.page, w.x, w.right, w.base, w.size, w.text))
+                    }
+                }
+                return out
+            }
             val out = ArrayList<Token>()
             for ((_, list) in tokens.groupBy { it.page }) {
                 val dom = list.groupingBy { it.angle }.eachCount().maxByOrNull { it.value }?.key ?: 0
-                list.filterTo(out) { Math.abs(it.angle - dom) <= 2 }
+                list.filterTo(out) { abs(it.angle - dom) <= 2 }
             }
             return out
         }

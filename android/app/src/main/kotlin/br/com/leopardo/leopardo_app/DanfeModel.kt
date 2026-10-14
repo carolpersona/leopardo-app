@@ -27,6 +27,42 @@ object DanfeModel {
         val cx get() = (x + right) / 2
     }
 
+    /** Um caractere com posição (vindo do PDFBox). */
+    class Ch(val page: Int, val x: Float, val right: Float, val base: Float, val size: Float, val text: String)
+
+    /**
+     * Separa uma sequência de caracteres (na ordem do arquivo) em palavras: corta em espaços,
+     * em saltos para trás (valores alinhados à direita desenhados fora de ordem), em mudança
+     * de linha e em espaços grandes entre letras.
+     */
+    fun splitWords(chars: List<Ch>): List<Word> {
+        val out = ArrayList<Word>()
+        val cur = ArrayList<Ch>()
+        fun flush() {
+            if (cur.isEmpty()) return
+            val t = cur.joinToString("") { it.text }.trim()
+            if (t.isNotEmpty()) {
+                out.add(Word(cur[0].page, cur.minOf { it.x }, cur.maxOf { it.right }, cur[0].base, cur.maxOf { it.size }, t))
+            }
+            cur.clear()
+        }
+        for (c in chars) {
+            if (c.text.isBlank()) {
+                flush(); continue
+            }
+            val pv = cur.lastOrNull()
+            if (pv != null) {
+                val newLine = abs(c.base - pv.base) > max(1.5f, pv.size * 0.3f)
+                val gap = c.x - pv.right > pv.size * 0.25f
+                val back = c.x < pv.x - pv.size * 0.6f
+                if (newLine || gap || back || c.page != pv.page) flush()
+            }
+            cur.add(c)
+        }
+        flush()
+        return out
+    }
+
     private class Line(val page: Int, val base: Float, val words: List<Word>) {
         val text get() = words.joinToString(" ") { it.text }
     }
@@ -135,8 +171,10 @@ object DanfeModel {
     /** Procura um rótulo (sequência de palavras) entre [minBase, maxBase]. */
     private fun Page.find(
         keys: List<String>, minBase: Float = -1f, maxBase: Float = 1e9f,
-        notFollowedBy: List<String> = emptyList(), minX: Float = -1f, maxX: Float = 1e9f
+        notFollowedBy: List<String> = emptyList(), minX: Float = -1f, maxX: Float = 1e9f,
+        skip: Int = 0
     ): Label? {
+        var skipped = 0
         for (key in keys) {
             for (line in lines) {
                 if (line.base < minBase || line.base > maxBase) continue
@@ -157,6 +195,7 @@ object DanfeModel {
                         next.x - ws[j - 1].right < next.size * 1.6f &&
                         notFollowedBy.any { next.norm.startsWith(it) }
                     ) continue
+                    if (skipped++ < skip) continue
                     // o rótulo pode continuar ("BAIRRO / DESTRITO"): junta palavras coladas
                     var e = j - 1
                     while (e + 1 < ws.size && ws[e + 1].x - ws[e].right < ws[e].size * 0.6f &&
@@ -219,8 +258,16 @@ object DanfeModel {
         keys: List<String>, minBase: Float = -1f, maxBase: Float = 1e9f,
         notFollowedBy: List<String> = emptyList()
     ): String {
-        val l = find(keys, minBase, maxBase, notFollowedBy) ?: return ""
-        return value(l, limit = maxBase)
+        // o mesmo texto pode aparecer como valor (ex.: destinatário "MUNICIPIO DE ..."):
+        // tenta a próxima ocorrência quando a célula abaixo não tem valor
+        for (n in 0 until 4) {
+            val l = find(keys, minBase, maxBase, notFollowedBy, skip = n) ?: return ""
+            // linha com vários rótulos = é mesmo um rótulo (célula vazia é válida)
+            if (countKeys(l.line.words.joinToString("") { it.norm }) >= 2) return value(l, limit = maxBase)
+            val v = value(l, limit = maxBase)
+            if (v.isNotEmpty()) return v
+        }
+        return ""
     }
 
     private fun money(s: String): String = MONEY.findAll(s).lastOrNull()?.value ?: ""
@@ -545,7 +592,8 @@ object DanfeModel {
         var ncmX = 0f
         var descX = 0f
         var current: MutableMap<String, String>? = null
-        for (line in rows) {
+        var prefix: List<Word> = emptyList()
+        for ((ri, line) in rows.withIndex()) {
             val ws = line.words
             // ignora as palavras do cabeçalho em 2 linhas (ex.: "VALOR / UNIT")
             if (current == null && line.base - header.base < 12f && looksLikeHeader(ws)) continue
@@ -554,7 +602,20 @@ object DanfeModel {
                 current = item.first
                 ncmX = item.second
                 descX = item.third
+                // 1ª linha da descrição um pouco acima da linha do item (texto alinhado ao topo)
+                val pre = prefix.filter { it.x >= descX - 2f && it.x < ncmX - 2f && it.norm.isNotEmpty() }
+                if (pre.isNotEmpty()) {
+                    current["desc"] = (pre.joinToString(" ") { it.text } + " " + (current["desc"] ?: "")).trim()
+                }
+                prefix = emptyList()
                 out.add(current)
+                continue
+            }
+            val next = rows.getOrNull(ri + 1)
+            if (next != null && next.base - line.base < max(3f, ws.maxOf { it.size } * 0.8f) &&
+                (itemRow(next.words) ?: itemRowEmpilhado(next.words)) != null
+            ) {
+                prefix = ws
                 continue
             }
             val cur = current ?: continue
@@ -613,9 +674,8 @@ object DanfeModel {
             }
             val nums = ws.subList(unIdx, ws.size).map { it.text }.filter { isNum(it) }
             if (nums.size < 3) continue
-            val code = if (k >= 2) ws[0].text else ""
-            val descStart = if (k >= 2) 1 else 0
-            val desc = ws.subList(descStart, k).joinToString(" ") { it.text }
+            val code = ws[0].text
+            val desc = ws.subList(1, k).joinToString(" ") { it.text }
             val m = linkedMapOf(
                 "cod" to code,
                 "desc" to desc,
@@ -624,7 +684,7 @@ object DanfeModel {
                 "vun" to fmtUnit(nums[1]),
                 "vtot" to fmtMoney(nums[2])
             )
-            return Triple(m, ws[k].x, ws[descStart].x)
+            return Triple(m, ws[k].x, if (k >= 2) ws[1].x else ws[0].right + 3f)
         }
         return null
     }
