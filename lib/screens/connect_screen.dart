@@ -156,7 +156,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     'Conecte cada impressora aqui no app pelo menos uma vez.',
                     style: TextStyle(fontSize: 13, color: LeoColors.muted, height: 1.4),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  SwitchRow('Boleto em PDF: imprimir no layout 80 mm', settings.autoBoleto, (v) {
+                    settings.autoBoleto = v;
+                    settings.save();
+                  }),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: OutlineAction(

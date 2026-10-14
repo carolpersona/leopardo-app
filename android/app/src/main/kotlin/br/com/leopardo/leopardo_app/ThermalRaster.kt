@@ -53,6 +53,33 @@ object ThermalRaster {
         return out.toByteArray()
     }
 
+    /** Imagens já na largura do papel (ex.: boleto refeito) → ESC/POS, preto e branco por limiar. */
+    fun bitmapsToEscPos(bitmaps: List<Bitmap>, paperDots: Int, opts: JobOptions): ByteArray {
+        val out = ByteArrayOutputStream()
+        out.write(byteArrayOf(0x1B, 0x40)) // ESC @
+        val shift = (opts.darkness.coerceIn(0, 2) - 1) * 30
+        for (bmp in bitmaps) {
+            val w = bmp.width
+            val h = bmp.height
+            val px = IntArray(w * h)
+            bmp.getPixels(px, 0, w, 0, 0, w, h)
+            val bpr = paperDots / 8
+            val bits = ByteArray(bpr * h)
+            val maxX = minOf(w, paperDots)
+            for (y in 0 until h) {
+                for (x in 0 until maxX) {
+                    if (lum(px[y * w + x]) < 150 + shift) {
+                        val bi = y * bpr + (x shr 3)
+                        bits[bi] = (bits[bi].toInt() or (0x80 shr (x and 7))).toByte()
+                    }
+                }
+            }
+            writeRaster(out, bits, h, paperDots)
+            out.write(byteArrayOf(0x1B, 0x64, opts.feedLines.coerceIn(0, 20).toByte()))
+        }
+        return out.toByteArray()
+    }
+
     /** Renderiza em 2x a largura do papel para recortar margens com boa qualidade. */
     private fun renderPage(page: PdfRenderer.Page, paperDots: Int): Bitmap {
         val w = paperDots * 2

@@ -26,6 +26,7 @@ class AppSettings extends ChangeNotifier {
 
   // Comandos da impressora (lidos também pelo serviço de impressão do Android).
   int feedLines = 4;
+  bool autoBoleto = true; // impressão pelo Android: refaz boletos no layout 80 mm
 
   // Controle de fluxo
   bool statusCheck = false; // envia DLE EOT 1 ao final e espera a resposta
@@ -67,6 +68,7 @@ class AppSettings extends ChangeNotifier {
     packetDelay = _p.getInt('packetDelay') ?? 10;
     disconnectWait = _p.getInt('disconnectWait') ?? 1;
     feedLines = _p.getInt('feedLines') ?? 4;
+    autoBoleto = _p.getBool('autoBoleto') ?? true;
     darkness = _p.getInt('darkness') ?? 1;
     lastPrinterId = _p.getString('lastPrinterId') ?? '';
     lastPrinterName = _p.getString('lastPrinterName') ?? '';
@@ -101,6 +103,7 @@ class AppSettings extends ChangeNotifier {
     await _p.setInt('packetDelay', packetDelay);
     await _p.setInt('disconnectWait', disconnectWait);
     await _p.setInt('feedLines', feedLines);
+    await _p.setBool('autoBoleto', autoBoleto);
     await _p.setInt('darkness', darkness);
     await _p.setString('lastPrinterId', lastPrinterId);
     await _p.setString('lastPrinterName', lastPrinterName);

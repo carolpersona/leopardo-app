@@ -52,6 +52,33 @@ class LeopardoPrintService : PrintService() {
         )
     }
 
+    /** Refazer boletos no layout 80 mm (Ajustes do app; ligado por padrão). */
+    private fun autoBoleto(): Boolean = try {
+        prefs().getBoolean("flutter.autoBoleto", true)
+    } catch (e: Exception) {
+        true
+    }
+
+    /**
+     * Se o PDF for um boleto, devolve os bytes no layout "Boleto 80 mm" (um por boleto);
+     * senão, null e o PDF é impresso como está.
+     */
+    private fun boletoBytes(pdf: java.io.File, dots: Int, options: ThermalRaster.JobOptions): ByteArray? {
+        if (!autoBoleto()) return null
+        return try {
+            val boletos = BoletoModel.read(BoletoAnalyzer.analyze(this, pdf.absolutePath))
+            if (boletos.isEmpty()) return null
+            val images = boletos.map { BoletoDraw.render(it, dots) }
+            try {
+                ThermalRaster.bitmapsToEscPos(images, dots, options)
+            } finally {
+                images.forEach { it.recycle() }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** Impressoras pareadas por Bluetooth clássico com "Leopardo" no nome. */
     private fun bondedLeopardo(): Map<String, String> = try {
         NativePrinters.bondedDevices(this)
@@ -219,7 +246,8 @@ class LeopardoPrintService : PrintService() {
         Thread {
             var error: String? = null
             try {
-                val bytes = ThermalRaster.pdfToEscPos(tmp, dots, options, isCancelled)
+                val bytes = boletoBytes(tmp, dots, options)
+                    ?: ThermalRaster.pdfToEscPos(tmp, dots, options, isCancelled)
                 if (address.startsWith("classic:") || address.startsWith("usb:")) {
                     NativePrinters.sendOnce(this, address, bytes, flow)
                 } else {

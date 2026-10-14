@@ -84,6 +84,14 @@ object BoletoAnalyzer {
         } catch (e: Exception) {
             textError = e.message ?: "erro ao ler o texto"
         }
+        // Medidas normalizadas para página de 595 pt de largura (A4), mesmo quando o
+        // app de origem já reduziu o boleto para a largura da bobina.
+        val factor = pages.map { 595.0 / ((it["width"] as Double).takeIf { w -> w > 10 } ?: 595.0) }
+        fun f(page: Int) = factor.getOrElse(page) { 1.0 }.toFloat()
+        val scaledTokens = tokens.map { t ->
+            val k = f(t.page)
+            Token(t.page, t.x * k, t.right * k, t.base * k, t.size * k, t.text)
+        }
         val pagesWithText = tokens.map { it.page }.toSet()
         val barcodes = ArrayList<Map<String, Any>>()
         val ocrTokens = ArrayList<Token>()
@@ -92,8 +100,16 @@ object BoletoAnalyzer {
         } catch (e: Exception) {
         }
         val out = HashMap<String, Any>()
-        out["segments"] = group(tokens + ocrTokens)
-        out["barcodes"] = barcodes
+        val scaledOcr = ocrTokens.map { t ->
+            val k = f(t.page)
+            Token(t.page, t.x * k, t.right * k, t.base * k, t.size * k, t.text)
+        }
+        out["segments"] = group(scaledTokens + scaledOcr)
+        out["barcodes"] = barcodes.map { b ->
+            val m = HashMap(b)
+            m["y"] = (b["y"] as Double) * f(b["page"] as Int)
+            m
+        }
         out["pages"] = pages
         out["ocr"] = ocrTokens.isNotEmpty()
         if (textError != null) out["textError"] = textError
