@@ -291,7 +291,9 @@ class MainActivity : FlutterActivity() {
                     val flow = FlowControl(
                         statusCheck = call.argument<Boolean>("statusCheck") ?: false,
                         packetDelayMs = call.argument<Int>("packetDelay") ?: 10,
-                        disconnectWaitSec = 0
+                        disconnectWaitSec = 0,
+                        speedMmS = call.argument<Int>("printSpeed") ?: 50,
+                        paperMm = call.argument<Int>("paperMm") ?: 58
                     )
                     worker.execute {
                         try {

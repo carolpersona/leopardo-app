@@ -194,14 +194,16 @@ object NativePrinters {
         val conn = usbConn
         val ep = usbOut
         val delay = flow.packetDelayMs.toLong()
+        val pacer = FlowControl.Pacer(flow)
         when {
             out != null -> {
                 try {
                     // Pacotes menores quando há pausa configurada, para dar ritmo ao envio.
-                    val size = if (delay > 0) 512 else 2048
+                    val size = if (delay > 0 || flow.speedMmS > 0) 512 else 2048
                     var i = 0
                     while (i < data.size) {
                         val n = minOf(size, data.size - i)
+                        pacer.before(n)
                         out.write(data, i, n)
                         out.flush()
                         i += n
@@ -214,10 +216,11 @@ object NativePrinters {
                 }
             }
             conn != null && ep != null -> {
-                val size = if (delay > 0) 4096 else 16384
+                val size = if (delay > 0 || flow.speedMmS > 0) 1024 else 16384
                 var i = 0
                 while (i < data.size) {
                     val n = minOf(size, data.size - i)
+                    pacer.before(n)
                     val chunk = data.copyOfRange(i, i + n)
                     val sent = conn.bulkTransfer(ep, chunk, n, 5000)
                     if (sent < 0) {

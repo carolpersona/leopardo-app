@@ -40,11 +40,14 @@ class NativePrinters {
   /// Lança [PlatformException] com a mensagem de erro em português.
   static Future<void> connect(String id) => _ch.invokeMethod('connect', {'id': id});
 
-  static Future<void> write(Uint8List bytes, {bool statusCheck = false, int packetDelay = 10}) =>
+  static Future<void> write(Uint8List bytes,
+          {bool statusCheck = false, int packetDelay = 10, int printSpeed = 50, int paperMm = 58}) =>
       _ch.invokeMethod('write', {
         'bytes': bytes,
         'statusCheck': statusCheck,
         'packetDelay': packetDelay,
+        'printSpeed': printSpeed,
+        'paperMm': paperMm,
       });
 
   static Future<void> disconnect() => _ch.invokeMethod('disconnect');

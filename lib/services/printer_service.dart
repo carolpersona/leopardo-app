@@ -350,7 +350,11 @@ class PrinterService extends ChangeNotifier {
     final flow = AppSettings.instance;
     if (nativeId != null) {
       try {
-        await NativePrinters.write(data, statusCheck: flow.statusCheck, packetDelay: flow.packetDelay);
+        await NativePrinters.write(data,
+            statusCheck: flow.statusCheck,
+            packetDelay: flow.packetDelay,
+            printSpeed: flow.printSpeed,
+            paperMm: flow.paperMm);
       } on PlatformException catch (e) {
         nativeId = null;
         notifyListeners();
@@ -363,8 +367,18 @@ class PrinterService extends ChangeNotifier {
     if (w == null || d == null) throw 'Impressora não conectada';
     final noResp = w.properties.writeWithoutResponse;
     final chunk = math.max(20, math.min(d.mtuNow - 3, noResp ? 180 : 240));
+    // Ritmo do envio = velocidade de impressão (não enche o buffer e o fim não se perde).
+    final rate = flow.bytesPerSecond;
+    final clock = Stopwatch()..start();
+    var sent = 0;
     for (var i = 0; i < data.length; i += chunk) {
       final end = math.min(i + chunk, data.length);
+      if (rate > 0) {
+        final allowed = 4096 + rate * clock.elapsedMicroseconds / 1e6;
+        final over = sent + (end - i) - allowed;
+        if (over > 0) await Future.delayed(Duration(microseconds: (over / rate * 1e6).round()));
+        sent += end - i;
+      }
       await w.write(data.sublist(i, end), withoutResponse: noResp);
       // Controle de fluxo: pausa entre pacotes para não estourar o buffer da impressora.
       if (flow.packetDelay > 0) {

@@ -199,7 +199,7 @@ const guides = <Guide>[
   Guide('Problemas comuns', 'O que fazer quando algo não sai certo', [
     'Não encontra a impressora: ligue o Bluetooth e a localização e deixe a impressora a até 5 metros.',
     'Impressão clara: em Ajustes, mude o "Tom da impressão" para Escuro.',
-    'Final do documento não sai: em Ajustes › Controle de fluxo, aumente o atraso entre pacotes e a espera antes de desconectar.',
+    'Documento cortado no final: em Ajustes › Controle de fluxo, diminua a "Velocidade de impressão" (ex.: 40 ou 30 mm/s).',
     'Letra pequena em PDF: ligue "Reorganizar texto para 80 mm".',
     'Ainda com problema? Use o Diagnóstico e envie o relatório à Leopardo.',
   ]),

@@ -34,6 +34,11 @@ class AppSettings extends ChangeNotifier {
   bool statusCheck = false; // envia DLE EOT 1 ao final e espera a resposta
   int packetDelay = 10; // ms entre pacotes
   int disconnectWait = 1; // segundos antes de desconectar
+  int printSpeed = 50; // mm/s: o envio acompanha a velocidade de impressão (0 = sem limite)
+  static const printSpeedOptions = [0, 20, 30, 40, 50, 60, 70, 80, 100, 120];
+
+  /// Bytes por segundo que a impressora consome (imagem: 8 linhas por mm).
+  double get bytesPerSecond => printSpeed <= 0 ? 0 : printSpeed * 8.0 * (paperMm == 80 ? 72 : 48);
   static const packetDelayOptions = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, //
     25, 30, 35, //
@@ -69,6 +74,7 @@ class AppSettings extends ChangeNotifier {
     statusCheck = _p.getBool('statusCheck') ?? false;
     packetDelay = _p.getInt('packetDelay') ?? 10;
     disconnectWait = _p.getInt('disconnectWait') ?? 1;
+    printSpeed = _p.getInt('printSpeed') ?? 50;
     feedLines = _p.getInt('feedLines') ?? 4;
     autoBoleto = _p.getBool('autoBoleto') ?? true;
     autoDanfe = _p.getBool('autoDanfe') ?? true;
@@ -106,6 +112,7 @@ class AppSettings extends ChangeNotifier {
     await _p.setBool('statusCheck', statusCheck);
     await _p.setInt('packetDelay', packetDelay);
     await _p.setInt('disconnectWait', disconnectWait);
+    await _p.setInt('printSpeed', printSpeed);
     await _p.setInt('feedLines', feedLines);
     await _p.setBool('autoBoleto', autoBoleto);
     await _p.setBool('autoDanfe', autoDanfe);

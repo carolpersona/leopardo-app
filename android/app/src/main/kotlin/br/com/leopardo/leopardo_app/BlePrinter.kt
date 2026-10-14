@@ -94,7 +94,7 @@ class BlePrinter(private val context: Context, private val address: String) {
         try {
             connect(device)
             if (flow.statusCheck) enableNotifications()
-            transmit(data, flow.packetDelayMs, isCancelled)
+            transmit(data, flow.packetDelayMs, isCancelled, FlowControl.Pacer(flow))
             if (flow.statusCheck) waitStatus(flow.packetDelayMs)
             // Dá tempo para a impressora receber o fim do buffer antes de desconectar.
             if (flow.disconnectWaitSec > 0) Thread.sleep(flow.disconnectWaitSec * 1000L)
@@ -172,7 +172,7 @@ class BlePrinter(private val context: Context, private val address: String) {
     }
 
     @Suppress("DEPRECATION")
-    private fun transmit(data: ByteArray, delayMs: Int, isCancelled: () -> Boolean) {
+    private fun transmit(data: ByteArray, delayMs: Int, isCancelled: () -> Boolean, pacer: FlowControl.Pacer? = null) {
         val g = gatt ?: return
         val c = writer ?: return
         val noResponse = (c.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
@@ -185,6 +185,7 @@ class BlePrinter(private val context: Context, private val address: String) {
             if (!connected) throw IllegalStateException("A impressora desconectou durante a impressão")
             val end = minOf(i + chunk, data.size)
             val part = data.copyOfRange(i, end)
+            pacer?.before(part.size)
             var ok = false
             for (attempt in 0 until 20) {
                 writeLatch = CountDownLatch(1)

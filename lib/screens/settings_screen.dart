@@ -220,6 +220,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 14),
               FieldLabel(
+                'Velocidade de impressão (o envio acompanha a impressora)',
+                DropdownButtonFormField<int>(
+                  value: AppSettings.printSpeedOptions.contains(s.printSpeed) ? s.printSpeed : 50,
+                  items: [
+                    for (final v in AppSettings.printSpeedOptions)
+                      DropdownMenuItem(
+                          value: v,
+                          child: Text(v == 0 ? 'Sem limite (mais rápido)' : (v == 50 ? '50 mm/s (recomendado)' : '$v mm/s'))),
+                  ],
+                  onChanged: (v) => setState(() => s.printSpeed = v ?? 50),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Se o documento sair cortado no final, diminua a velocidade (ex.: 40 ou 30 mm/s).',
+                style: TextStyle(fontSize: 12, color: LeoColors.muted, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              FieldLabel(
                 'Atraso entre pacotes para impedir o estouro de buffer (ms)',
                 DropdownButtonFormField<int>(
                   value: AppSettings.packetDelayOptions.contains(s.packetDelay) ? s.packetDelay : 10,
