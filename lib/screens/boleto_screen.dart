@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/boleto.dart';
+import '../services/boleto_large.dart';
 import '../services/boleto_renderer.dart';
 import '../services/printer_service.dart';
 import '../services/raster.dart';
@@ -135,7 +136,9 @@ class _BoletoScreenState extends State<BoletoScreen> {
   Future<MonoBitmap> _monoFor(int i) async {
     final cached = _mono[i];
     if (cached != null) return cached;
-    final img = await BoletoRenderer.render(_boletos[i], settings.paperDots);
+    final img = settings.boletoLayout == 1
+        ? await BoletoRenderer.render(_boletos[i], settings.paperDots)
+        : await BoletoLargeRenderer.render(_boletos[i], settings.paperDots);
     final m = await toMono(img, settings.paperDots);
     img.dispose();
     _mono[i] = m;
@@ -217,7 +220,7 @@ class _BoletoScreenState extends State<BoletoScreen> {
                 if (settings.paperMm != 80) ...[
                   const SizedBox(height: 10),
                   const Text(
-                    'Este layout foi feito para bobina de 80 mm. Em 58 mm o boleto sai reduzido '
+                    'O boleto foi pensado para bobina de 80 mm. Em 58 mm ele sai mais estreito '
                     '(o código de barras continua no tamanho oficial).',
                     style: TextStyle(fontSize: 13, color: LeoColors.text2),
                   ),
@@ -239,8 +242,20 @@ class _BoletoScreenState extends State<BoletoScreen> {
                   ]),
                 ],
                 const SizedBox(height: 16),
+                const SectionLabel('Layout'),
+                Segmented(
+                  options: const ['Grande (em pé)', 'Compacto (deitado)'],
+                  selected: settings.boletoLayout,
+                  onChanged: (i) {
+                    settings.boletoLayout = i;
+                    settings.save();
+                    _mono.clear();
+                    _render();
+                  },
+                ),
+                const SizedBox(height: 16),
                 SectionLabel('Prévia · ${settings.paperMm} mm'),
-                PaperPreview(image: _preview, loading: _rendering, maxHeight: 1100),
+                PaperPreview(image: _preview, loading: _rendering, maxHeight: 2400),
                 const SizedBox(height: 16),
                 LeoCard(
                   padding: EdgeInsets.zero,
